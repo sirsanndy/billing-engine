@@ -3,16 +3,19 @@ package loan
 import (
 	"context"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
 
+var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+
 func TestCreateLoan(t *testing.T) {
 	mockRepo := new(MockRepository)
-	logger := slog.New(slog.NewTextHandler(nil, nil))
 	service := NewLoanService(mockRepo, logger)
 
 	ctx := context.Background()
@@ -33,7 +36,7 @@ func TestCreateLoan(t *testing.T) {
 
 func TestGetOutstanding(t *testing.T) {
 	mockRepo := new(MockRepository)
-	logger := slog.New(slog.NewTextHandler(nil, nil))
+
 	service := NewLoanService(mockRepo, logger)
 
 	ctx := context.Background()
@@ -51,7 +54,7 @@ func TestGetOutstanding(t *testing.T) {
 
 func TestIsDelinquent(t *testing.T) {
 	mockRepo := new(MockRepository)
-	logger := slog.New(slog.NewTextHandler(nil, nil))
+
 	service := NewLoanService(mockRepo, logger)
 
 	ctx := context.Background()
@@ -68,14 +71,17 @@ func TestIsDelinquent(t *testing.T) {
 }
 
 func TestMakePayment(t *testing.T) {
+	type TxMock struct {
+		pgx.Tx
+	}
 	mockRepo := new(MockRepository)
-	logger := slog.New(slog.NewTextHandler(nil, nil))
+
 	service := NewLoanService(mockRepo, logger)
 
 	ctx := context.Background()
 	loanID := int64(1)
 	amount := Money(100)
-	tx := struct{}{}
+	tx := &TxMock{}
 	entry := &ScheduleEntry{DueAmount: amount}
 
 	mockRepo.On("BeginTx", ctx).Return(tx, nil)
@@ -92,7 +98,7 @@ func TestMakePayment(t *testing.T) {
 
 func TestGetLoan(t *testing.T) {
 	mockRepo := new(MockRepository)
-	logger := slog.New(slog.NewTextHandler(nil, nil))
+
 	service := NewLoanService(mockRepo, logger)
 
 	ctx := context.Background()
@@ -110,7 +116,7 @@ func TestGetLoan(t *testing.T) {
 
 func TestGetLoanSchedule(t *testing.T) {
 	mockRepo := new(MockRepository)
-	logger := slog.New(slog.NewTextHandler(nil, nil))
+
 	service := NewLoanService(mockRepo, logger)
 
 	ctx := context.Background()
