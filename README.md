@@ -2,7 +2,10 @@
 This is a simple project of billing engine, created for technical test in Amartha
 # Requirements
 - Go
-- Gin
+- Go-Chi
+- Swagger
+- Postgre
+- Slog
 - Prometheus
 # Project Structure
 ```
