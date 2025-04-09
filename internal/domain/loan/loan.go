@@ -57,15 +57,11 @@ type ScheduleEntry struct {
 }
 
 func NewLoan(principal float64, termWeeks int, annualInterestRate float64, startDate time.Time) (*Loan, error) {
-	if principal <= 0 {
-		principal = DefaultPrincipal
+	if principal < 0 {
+		return nil, fmt.Errorf("%w: principal amount must be positive", apperrors.ErrInvalidArgument)
 	}
-	if termWeeks <= 0 {
-		termWeeks = DefaultTermWeeks
-	}
-
 	if annualInterestRate < 0 {
-		annualInterestRate = DefaultInterestRate
+		return nil, fmt.Errorf("%w: annual interest rate must be non-negative", apperrors.ErrInvalidArgument)
 	}
 	if termWeeks <= 0 {
 		return nil, fmt.Errorf("%w: term weeks must be positive", apperrors.ErrInvalidArgument)
