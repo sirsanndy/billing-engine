@@ -1,0 +1,50 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+billing-engine
+app
+
+# Test binary, build artifacts
+*.test
+*.out
+_obj/
+_test/
+*.[oa]
+*.a
+*.o
+
+# Go packages
+/vendor/
+/pkg/        # If using dep or older module versions
+
+# Environment configuration.
+.envrc
+.envrc.local
+.env
+*.env
+
+# IDE settings.
+.idea/
+.vscode/
+*.sublime-*
+*.tmproj
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Build results
+/build/
+/dist/
+
+# Log files
+*.log
+logs/
