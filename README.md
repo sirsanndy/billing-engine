@@ -20,7 +20,7 @@ billing-engine/
 │   │   │   ├── auth_handler.go
 │   │   │   └── loan_handler.go
 │   │   ├── middleware/
-│   │   │   ├── auth_oauth2.go
+│   │   │   ├── auth.go
 │   │   │   ├── logger.go
 │   │   │   ├── metrics.go
 │   │   │   └── ratelimit.go
