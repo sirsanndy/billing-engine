@@ -48,14 +48,12 @@ func TestRateLimiterMiddleware(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.RemoteAddr = "127.0.0.1:12345"
 
-		// First request should pass
 		rec1 := httptest.NewRecorder()
 		handler.ServeHTTP(rec1, req)
 		if rec1.Code != http.StatusOK {
 			t.Errorf("expected status %d, got %d", http.StatusOK, rec1.Code)
 		}
 
-		// Third request should be blocked
 		rec2 := httptest.NewRecorder()
 		handler.ServeHTTP(rec2, req)
 		if rec2.Code != http.StatusTooManyRequests {
