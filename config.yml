@@ -1,0 +1,31 @@
+server:
+  port: 8080
+  shutdown_timeout_sec: 10
+
+database:
+  dsn: "postgresql://user:password@localhost:5432/billing_db?sslmode=disable" # Use env var in production
+  pool:
+    max_conns: 10
+    min_conns: 2
+    max_conn_lifetime_min: 60
+    max_conn_idle_time_min: 5
+    health_check_period_min: 1
+
+logging:
+  level: "info" # debug, info, warn, error
+
+api:
+  enable_auth: true # Set to false to disable OAuth2 middleware
+
+auth:
+  # Replace with your actual Auth Provider details
+  jwks_url: "http://localhost:8085/.well-known/jwks.json" # Example: Keycloak JWKS endpoint
+  audience: "account" # Example: Keycloak audience
+  issuer: "http://localhost:8085/realms/myrealm" # Example: Keycloak issuer
+
+rate_limit:
+  rps: 10 # Requests per second per IP
+  burst: 20 # Burst allowance per IP
+  enabled: true
+
+# --- Add other config sections as needed ---
