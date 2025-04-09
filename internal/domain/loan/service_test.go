@@ -34,20 +34,19 @@ func TestCreateLoan(t *testing.T) {
 func TestGetOutstanding(t *testing.T) {
 	mockRepo := new(MockRepository)
 	logger := slog.New(slog.NewTextHandler(nil, nil))
-	mockRepo.AssertExpectations(t)
 	service := NewLoanService(mockRepo, logger)
 
 	ctx := context.Background()
 	loanID := int64(1)
 	expectedOutstanding := Money(500)
 
-	// mockRepo.On("GetTotalOutstandingAmount", ctx, loanID).Return(expectedOutstanding, nil)
+	mockRepo.On("GetTotalOutstandingAmount", ctx, loanID).Return(expectedOutstanding, nil)
 
 	result, err := service.GetOutstanding(ctx, loanID)
 
 	assert.NoError(t, err)
 	assert.Equal(t, expectedOutstanding, result)
-	// mockRepo.AssertExpectations(t)
+	mockRepo.AssertExpectations(t)
 }
 
 func TestIsDelinquent(t *testing.T) {
