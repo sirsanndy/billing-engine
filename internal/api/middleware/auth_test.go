@@ -70,7 +70,7 @@ func TestAuthMiddleware(t *testing.T) {
 		middleware(nextHandler).ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusUnauthorized {
-			t.Errorf("expected status %d, got %d", http.StatusUnauthorized, rec.Code)
+			t.Errorf(statusErrorMsg, http.StatusUnauthorized, rec.Code)
 		}
 	})
 
