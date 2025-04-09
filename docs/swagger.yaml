@@ -1,0 +1,284 @@
+definitions:
+  dto.CreateLoanRequest:
+    properties:
+      annualInterestRate:
+        type: string
+      principal:
+        type: string
+      startDate:
+        type: string
+      termWeeks:
+        type: integer
+    type: object
+  dto.DelinquentResponse:
+    properties:
+      isDelinquent:
+        type: boolean
+      loanId:
+        type: string
+    type: object
+  dto.ErrorDetail:
+    properties:
+      code:
+        type: string
+      field:
+        type: string
+      message:
+        type: string
+    type: object
+  dto.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/dto.ErrorDetail'
+    type: object
+  dto.LoanResponse:
+    properties:
+      createdAt:
+        type: string
+      id:
+        type: string
+      interestRate:
+        type: string
+      principalAmount:
+        type: string
+      schedule:
+        items:
+          $ref: '#/definitions/dto.ScheduleEntryResponse'
+        type: array
+      startDate:
+        type: string
+      status:
+        type: string
+      termWeeks:
+        type: integer
+      totalLoanAmount:
+        type: string
+      updatedAt:
+        type: string
+      weeklyPaymentAmount:
+        type: string
+    type: object
+  dto.OutstandingResponse:
+    properties:
+      loanId:
+        type: string
+      outstandingAmount:
+        type: string
+    type: object
+  dto.ScheduleEntryResponse:
+    properties:
+      dueAmount:
+        type: string
+      dueDate:
+        type: string
+      id:
+        type: string
+      paidAmount:
+        type: string
+      paymentDate:
+        type: string
+      status:
+        type: string
+      weekNumber:
+        type: integer
+    type: object
+  dto.TokenRequest:
+    properties:
+      username:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@billing-engine.com
+    name: API Support
+    url: http://billing-engine.com/support
+  description: This is the API documentation for the Billing Engine service.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://billing-engine.com/terms/
+  title: Billing Engine API
+  version: "1.0"
+paths:
+  /auth/token:
+    post:
+      consumes:
+      - application/json
+      description: This function generates a JWT bearer token based on a given secret.
+      parameters:
+      - description: username
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token successfully generated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      summary: Generate a JWT bearer token
+      tags:
+      - Authentication
+  /loans:
+    post:
+      consumes:
+      - application/json
+      description: This endpoint allows the creation of a new loan by providing the
+        principal amount, term in weeks, annual interest rate, and start date.
+      parameters:
+      - description: Loan creation request payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateLoanRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Loan successfully created
+          schema:
+            $ref: '#/definitions/dto.LoanResponse'
+        "400":
+          description: Invalid request payload or validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new loan
+      tags:
+      - Loans
+  /loans/{loanID}:
+    get:
+      description: This endpoint retrieves the details of a loan by its ID. Optionally,
+        the repayment schedule can be included in the response by adding the query
+        parameter `include=schedule`.
+      parameters:
+      - description: Loan ID
+        in: path
+        name: loanID
+        required: true
+        type: integer
+      - description: Optional parameter to include repayment schedule (use 'schedule')
+        in: query
+        name: include
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Loan details successfully retrieved
+          schema:
+            $ref: '#/definitions/dto.LoanResponse'
+        "400":
+          description: Invalid loan ID or request parameters
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Loan not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Retrieve loan details
+      tags:
+      - Loans
+  /loans/{loanID}/delinquent:
+    get:
+      description: This endpoint checks whether a loan is delinquent by its ID.
+      parameters:
+      - description: Loan ID
+        in: path
+        name: loanID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Delinquency status successfully retrieved
+          schema:
+            $ref: '#/definitions/dto.DelinquentResponse'
+        "400":
+          description: Invalid loan ID or request parameters
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Loan not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Check loan delinquency status
+      tags:
+      - Loans
+  /loans/{loanID}/outstanding:
+    get:
+      description: This endpoint retrieves the outstanding amount for a loan by its
+        ID.
+      parameters:
+      - description: Loan ID
+        in: path
+        name: loanID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Outstanding amount successfully retrieved
+          schema:
+            $ref: '#/definitions/dto.OutstandingResponse'
+        "400":
+          description: Invalid loan ID or request parameters
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Loan not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Retrieve outstanding loan amount
+      tags:
+      - Loans
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: X-API-KEY
+    type: apiKey
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
