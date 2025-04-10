@@ -13,14 +13,28 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pashagolub/pgxmock/v4"
 )
 
+type DBPool interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	Acquire(ctx context.Context) (*pgxpool.Conn, error)
+	Close()
+}
+
 type LoanRepository struct {
-	db     *pgxpool.Pool
+	db     DBPool
 	logger *slog.Logger
 }
 
-func NewLoanRepository(db *pgxpool.Pool, logger *slog.Logger) *LoanRepository {
+var _ DBPool = (*pgxpool.Pool)(nil)
+
+var _ DBPool = (pgxmock.PgxPoolIface)(nil)
+
+func NewLoanRepository(db DBPool, logger *slog.Logger) *LoanRepository {
 	return &LoanRepository{db: db, logger: logger.With("component", "LoanRepository")}
 }
 
