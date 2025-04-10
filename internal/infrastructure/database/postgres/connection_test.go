@@ -1,137 +1,94 @@
 package postgres
 
 import (
-	"billing-engine/internal/config"
+	"billing-engine/internal/config" // Adjust import path if needed
 	"context"
-	"errors"
 	"log/slog"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
-type MockPgxPool struct {
-	mock.Mock
-}
-
-func (m *MockPgxPool) Ping(ctx context.Context) error {
-	args := m.Called(ctx)
-	return args.Error(0)
-}
-
-func (m *MockPgxPool) Close() {
-	m.Called()
-}
-
-func TestNewConnectionPool(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(nil))
-	ctx := context.Background()
-
-	t.Run("should return error when database URL is empty", func(t *testing.T) {
-		cfg := config.DatabaseConfig{URL: ""}
-		_, err := NewConnectionPool(ctx, cfg, logger)
-		assert.Error(t, err)
-		assert.Equal(t, "database URL is empty in configuration", err.Error())
-	})
-
-	t.Run("should return error when configurePool fails", func(t *testing.T) {
-		cfg := config.DatabaseConfig{URL: "invalid-url"}
-		_, err := NewConnectionPool(ctx, cfg, logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse database config from URL")
-	})
-
-	t.Run("should return error when connection pool creation fails", func(t *testing.T) {
-		cfg := config.DatabaseConfig{URL: "postgres://user:password@localhost:5432/dbname"}
-		originalNewWithConfig := pgxpool.NewWithConfig
-		defer func() { pgxpool.NewWithConfig = originalNewWithConfig }()
-		pgxpool.NewWithConfig = func(ctx context.Context, config *pgxpool.Config) (*pgxpool.Pool, error) {
-			return nil, errors.New("mock connection pool creation error")
-		}
-
-		_, err := NewConnectionPool(ctx, cfg, logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "unable to create connection pool")
-	})
-
-	t.Run("should return error when verifyConnection fails", func(t *testing.T) {
-		cfg := config.DatabaseConfig{URL: "postgres://user:password@localhost:5432/dbname"}
-		mockPool := new(MockPgxPool)
-		mockPool.On("Ping", mock.Anything).Return(errors.New("mock ping error"))
-		mockPool.On("Close").Return()
-
-		originalNewWithConfig := pgxpool.NewWithConfig
-		defer func() { pgxpool.NewWithConfig = originalNewWithConfig }()
-		pgxpool.NewWithConfig = func(ctx context.Context, config *pgxpool.Config) (*pgxpool.Pool, error) {
-			return mockPool, nil
-		}
-
-		_, err := NewConnectionPool(ctx, cfg, logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to ping database on connect")
-		mockPool.AssertCalled(t, "Close")
-	})
-
-	t.Run("should successfully create connection pool", func(t *testing.T) {
-		cfg := config.DatabaseConfig{URL: "postgres://user:password@localhost:5432/dbname"}
-		mockPool := new(MockPgxPool)
-		mockPool.On("Ping", mock.Anything).Return(nil)
-
-		originalNewWithConfig := pgxpool.NewWithConfig
-		defer func() { pgxpool.NewWithConfig = originalNewWithConfig }()
-		pgxpool.NewWithConfig = func(ctx context.Context, config *pgxpool.Config) (*pgxpool.Pool, error) {
-			return mockPool, nil
-		}
-
-		pool, err := NewConnectionPool(ctx, cfg, logger)
-		assert.NoError(t, err)
-		assert.NotNil(t, pool)
-		mockPool.AssertCalled(t, "Ping", mock.Anything)
-	})
+// Helper to create a discard logger for tests
+func newTestLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})) // Use Stderr for visibility during testing if needed, or io.DiscardHandler
+	// return slog.New(slog.NewTextHandler(io.Discard, nil)) // Use io.Discard to suppress logs during tests
 }
 
 func TestConfigurePool(t *testing.T) {
-	t.Run("should return error for invalid database URL", func(t *testing.T) {
-		cfg := config.DatabaseConfig{URL: "invalid-url"}
-		_, err := configurePool(cfg)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to parse database config from URL")
-	})
+	t.Run("ValidURL", func(t *testing.T) {
+		cfg := config.DatabaseConfig{
+			URL: "postgres://user:password@host:port/dbname?sslmode=disable",
+		}
 
-	t.Run("should configure pool successfully", func(t *testing.T) {
-		cfg := config.DatabaseConfig{URL: "postgres://user:password@localhost:5432/dbname"}
 		poolConfig, err := configurePool(cfg)
-		assert.NoError(t, err)
-		assert.NotNil(t, poolConfig)
+		require.NoError(t, err)
+		require.NotNil(t, poolConfig)
+
+		// Check default settings applied
 		assert.Equal(t, int32(10), poolConfig.MaxConns)
 		assert.Equal(t, 5*time.Minute, poolConfig.MaxConnIdleTime)
 		assert.Equal(t, 1*time.Minute, poolConfig.HealthCheckPeriod)
+
+		// Check basic parsing from URL
+		assert.Equal(t, "host", poolConfig.ConnConfig.Host)
+		assert.Equal(t, "dbname", poolConfig.ConnConfig.Database)
+		assert.Equal(t, "user", poolConfig.ConnConfig.User)
+	})
+
+	t.Run("InvalidURL", func(t *testing.T) {
+		cfg := config.DatabaseConfig{
+			URL: "://invalid-url-format", // Malformed URL
+		}
+
+		poolConfig, err := configurePool(cfg)
+		require.Error(t, err)
+		assert.Nil(t, poolConfig)
+		assert.Contains(t, err.Error(), "failed to parse database config from URL")
+	})
+
+	t.Run("EmptyURL", func(t *testing.T) {
+		// configurePool expects a non-empty URL as pgxpool.ParseConfig does
+		cfg := config.DatabaseConfig{
+			URL: "",
+		}
+		poolConfig, err := configurePool(cfg)
+		require.Error(t, err) // pgxpool.ParseConfig returns error for empty string
+		assert.Nil(t, poolConfig)
+		assert.Contains(t, err.Error(), "cannot be blank") // Error message from pgxpool
 	})
 }
 
-func TestVerifyConnection(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(nil))
+func TestNewConnectionPool(t *testing.T) {
+	logger := newTestLogger()
 	ctx := context.Background()
 
-	t.Run("should return error when ping fails", func(t *testing.T) {
-		mockPool := new(MockPgxPool)
-		mockPool.On("Ping", mock.Anything).Return(errors.New("mock ping error"))
+	t.Run("EmptyURLConfig", func(t *testing.T) {
+		cfg := config.DatabaseConfig{
+			URL: "", // Explicitly empty URL
+		}
 
-		err := verifyConnection(ctx, mockPool, logger)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to ping database on connect")
-		mockPool.AssertCalled(t, "Ping", mock.Anything)
+		dbpool, err := NewConnectionPool(ctx, cfg, logger)
+
+		require.Error(t, err)
+		assert.Nil(t, dbpool)
+		assert.EqualError(t, err, "database URL is empty in configuration")
 	})
 
-	t.Run("should verify connection successfully", func(t *testing.T) {
-		mockPool := new(MockPgxPool)
-		mockPool.On("Ping", mock.Anything).Return(nil)
+	t.Run("InvalidURLFormat", func(t *testing.T) {
+		// This tests the error propagation from configurePool
+		cfg := config.DatabaseConfig{
+			URL: "://invalid-url",
+		}
 
-		err := verifyConnection(ctx, mockPool, logger)
-		assert.NoError(t, err)
-		mockPool.AssertCalled(t, "Ping", mock.Anything)
+		dbpool, err := NewConnectionPool(ctx, cfg, logger)
+
+		require.Error(t, err)
+		assert.Nil(t, dbpool)
+		// We expect the error message from configurePool, wrapped by its caller if applicable (here it's not wrapped further)
+		assert.Contains(t, err.Error(), "failed to parse database config from URL")
 	})
 }

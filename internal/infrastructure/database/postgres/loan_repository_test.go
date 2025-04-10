@@ -415,8 +415,8 @@ func TestLoanRepository_GetScheduleByLoanID_Success(t *testing.T) {
 	loanID := int64(1)
 	now := time.Now()
 	expectedSchedule := []loan.ScheduleEntry{
-		{ID: 1, LoanID: loanID, WeekNumber: 1, DueDate: now.AddDate(0, 0, 7), DueAmount: 105.0, PaidAmount: pgx.Null[float64]{}, PaymentDate: pgx.Null[time.Time]{}, Status: loan.ScheduleStatusPending, CreatedAt: now, UpdatedAt: now},
-		{ID: 2, LoanID: loanID, WeekNumber: 2, DueDate: now.AddDate(0, 0, 14), DueAmount: 105.0, PaidAmount: pgx.Null[float64]{}, PaymentDate: pgx.Null[time.Time]{}, Status: loan.ScheduleStatusPending, CreatedAt: now, UpdatedAt: now},
+		{ID: 1, LoanID: loanID, WeekNumber: 1, DueDate: now.AddDate(0, 0, 7), DueAmount: 105.0, PaidAmount: float64(pgtype.Null), PaymentDate: nil, Status: loan.PaymentStatusPending, CreatedAt: now, UpdatedAt: now},
+		{ID: 2, LoanID: loanID, WeekNumber: 2, DueDate: now.AddDate(0, 0, 14), DueAmount: 105.0, PaidAmount: float64(pgtype.Null), PaymentDate: nil, Status: loan.PaymentStatusPending, CreatedAt: now, UpdatedAt: now},
 	}
 
 	query := `
@@ -495,7 +495,7 @@ func TestLoanRepository_GetUnpaidSchedules_Success(t *testing.T) {
 	now := time.Now()
 
 	expectedSchedule := []loan.ScheduleEntry{
-		{ID: 2, LoanID: loanID, WeekNumber: 2, DueDate: now.AddDate(0, 0, 14), DueAmount: 105.0, PaidAmount: pgx.Null[float64]{}, PaymentDate: pgx.Null[time.Time]{}, Status: loan.ScheduleStatusPending, CreatedAt: now, UpdatedAt: now},
+		{ID: 2, LoanID: loanID, WeekNumber: 2, DueDate: now.AddDate(0, 0, 14), DueAmount: 105.0, PaidAmount: float64(pgtype.Null), PaymentDate: nil, Status: loan.PaymentStatusPending, CreatedAt: now, UpdatedAt: now},
 	}
 
 	query := `
@@ -527,8 +527,8 @@ func TestLoanRepository_GetLastTwoDueUnpaidSchedules_Success(t *testing.T) {
 	now := time.Now()
 
 	expectedSchedule := []loan.ScheduleEntry{
-		{ID: 4, LoanID: loanID, WeekNumber: 4, DueDate: now.AddDate(0, 0, 28), DueAmount: 105.0, PaidAmount: pgx.Null[float64]{}, PaymentDate: pgx.Null[time.Time]{}, Status: loan.ScheduleStatusPending, CreatedAt: now, UpdatedAt: now},
-		{ID: 3, LoanID: loanID, WeekNumber: 3, DueDate: now.AddDate(0, 0, 21), DueAmount: 105.0, PaidAmount: pgx.Null[float64]{}, PaymentDate: pgx.Null[time.Time]{}, Status: loan.ScheduleStatusMissed, CreatedAt: now, UpdatedAt: now},
+		{ID: 4, LoanID: loanID, WeekNumber: 4, DueDate: now.AddDate(0, 0, 28), DueAmount: 105.0, PaidAmount: float64(pgtype.Null), PaymentDate: nil, Status: loan.PaymentStatusPending, CreatedAt: now, UpdatedAt: now},
+		{ID: 3, LoanID: loanID, WeekNumber: 3, DueDate: now.AddDate(0, 0, 21), DueAmount: 105.0, PaidAmount: float64(pgtype.Null), PaymentDate: nil, Status: loan.PaymentStatusMissed, CreatedAt: now, UpdatedAt: now},
 	}
 
 	query := `
@@ -560,14 +560,10 @@ func TestLoanRepository_FindOldestUnpaidEntryForUpdate_Success(t *testing.T) {
 	loanID := int64(1)
 	now := time.Now()
 	expectedEntry := loan.ScheduleEntry{
-		ID: 1, LoanID: loanID, WeekNumber: 1, DueDate: now.AddDate(0, 0, 7), DueAmount: 105.0, Status: loan.ScheduleStatusPending, CreatedAt: now, UpdatedAt: now,
-		PaidAmount:  pgx.Null[float64]{},
-		PaymentDate: pgx.Null[time.Time]{},
+		ID: 1, LoanID: loanID, WeekNumber: 1, DueDate: now.AddDate(0, 0, 7), DueAmount: 105.0, Status: loan.PaymentStatusPending, CreatedAt: now, UpdatedAt: now,
+		PaidAmount:  float64(pgtype.Null),
+		PaymentDate: nil,
 	}
-
-	mockTx, err := mockPool.Begin(ctx)
-	require.NoError(t, err)
-	mockTxIface := mockTx.(pgxmock.PgxCommonIface)
 
 	query := `
         SELECT id, loan_id, week_number, due_date, due_amount, paid_amount, payment_date, status, created_at, updated_at
@@ -584,9 +580,9 @@ func TestLoanRepository_FindOldestUnpaidEntryForUpdate_Success(t *testing.T) {
 		expectedEntry.Status, expectedEntry.CreatedAt, expectedEntry.UpdatedAt,
 	)
 
-	mockTxIface.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(loanID).WillReturnRows(rows)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(loanID).WillReturnRows(rows)
 
-	entry, err := repo.FindOldestUnpaidEntryForUpdate(ctx, mockTx, loanID)
+	entry, err := repo.FindOldestUnpaidEntryForUpdate(ctx, mockPool, loanID)
 
 	assert.NoError(t, err)
 	require.NotNil(t, entry)
@@ -599,10 +595,6 @@ func TestLoanRepository_FindOldestUnpaidEntryForUpdate_NotFound(t *testing.T) {
 	defer mockPool.Close()
 	loanID := int64(1)
 
-	mockTx, err := mockPool.Begin(ctx)
-	require.NoError(t, err)
-	mockTxIface := mockTx.(pgxmock.PgxCommonIface)
-
 	query := `
         SELECT id, loan_id, week_number, due_date, due_amount, paid_amount, payment_date, status, created_at, updated_at
         FROM loan_schedule
@@ -611,11 +603,11 @@ func TestLoanRepository_FindOldestUnpaidEntryForUpdate_NotFound(t *testing.T) {
         LIMIT 1
         FOR UPDATE`
 
-	mockTxIface.ExpectQuery(regexp.QuoteMeta(query)).
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
 		WithArgs(loanID).
 		WillReturnError(pgx.ErrNoRows)
 
-	entry, err := repo.FindOldestUnpaidEntryForUpdate(ctx, mockTx, loanID)
+	entry, err := repo.FindOldestUnpaidEntryForUpdate(ctx, mockPool, loanID)
 
 	assert.Error(t, err)
 	assert.Nil(t, entry)
@@ -630,25 +622,21 @@ func TestLoanRepository_UpdateScheduleEntryInTx_Success(t *testing.T) {
 	entryToUpdate := &loan.ScheduleEntry{
 		ID:          1,
 		LoanID:      10,
-		PaidAmount:  pgtype.Numeric{Int: 105, Status: true},
-		PaymentDate: pgtype.Timestamptz{Time: now, Status: true},
+		PaidAmount:  float64(105),
+		PaymentDate: &now,
 		Status:      loan.PaymentStatusPaid,
 	}
-
-	mockTx, err := mockPool.Begin(ctx)
-	require.NoError(t, err)
-	mockTxIface := mockTx.(pgxmock.PgxCommonIface)
 
 	sql := `
         UPDATE loan_schedule
         SET paid_amount = $1, payment_date = $2, status = $3, updated_at = NOW()
         WHERE id = $4 AND loan_id = $5`
 
-	mockTxIface.ExpectExec(regexp.QuoteMeta(sql)).
+	mockPool.ExpectExec(regexp.QuoteMeta(sql)).
 		WithArgs(entryToUpdate.PaidAmount, entryToUpdate.PaymentDate, entryToUpdate.Status, entryToUpdate.ID, entryToUpdate.LoanID).
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
-	err = repo.UpdateScheduleEntryInTx(ctx, mockTx, entryToUpdate)
+	err := repo.UpdateScheduleEntryInTx(ctx, mockPool, entryToUpdate)
 
 	assert.NoError(t, err)
 }
@@ -659,20 +647,16 @@ func TestLoanRepository_UpdateScheduleEntryInTx_Error_DB(t *testing.T) {
 	entryToUpdate := &loan.ScheduleEntry{ID: 1, LoanID: 10 /* ... */}
 	dbErr := errors.New("update failed")
 
-	mockTx, err := mockPool.Begin(ctx)
-	require.NoError(t, err)
-	mockTxIface := mockTx.(pgxmock.PgxCommonIface)
-
 	sql := `
         UPDATE loan_schedule
         SET paid_amount = $1, payment_date = $2, status = $3, updated_at = NOW()
         WHERE id = $4 AND loan_id = $5`
 
-	mockTxIface.ExpectExec(regexp.QuoteMeta(sql)).
+	mockPool.ExpectExec(regexp.QuoteMeta(sql)).
 		WithArgs(entryToUpdate.PaidAmount, entryToUpdate.PaymentDate, entryToUpdate.Status, entryToUpdate.ID, entryToUpdate.LoanID).
 		WillReturnError(dbErr)
 
-	err = repo.UpdateScheduleEntryInTx(ctx, mockTx, entryToUpdate)
+	err := repo.UpdateScheduleEntryInTx(ctx, mockPool, entryToUpdate)
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, apperrors.ErrDatabase)
@@ -684,20 +668,16 @@ func TestLoanRepository_UpdateScheduleEntryInTx_Error_RowsAffectedZero(t *testin
 	defer mockPool.Close()
 	entryToUpdate := &loan.ScheduleEntry{ID: 1, LoanID: 10 /* ... */}
 
-	mockTx, err := mockPool.Begin(ctx)
-	require.NoError(t, err)
-	mockTxIface := mockTx.(pgxmock.PgxCommonIface)
-
 	sql := `
         UPDATE loan_schedule
         SET paid_amount = $1, payment_date = $2, status = $3, updated_at = NOW()
         WHERE id = $4 AND loan_id = $5`
 
-	mockTxIface.ExpectExec(regexp.QuoteMeta(sql)).
+	mockPool.ExpectExec(regexp.QuoteMeta(sql)).
 		WithArgs(entryToUpdate.PaidAmount, entryToUpdate.PaymentDate, entryToUpdate.Status, entryToUpdate.ID, entryToUpdate.LoanID).
 		WillReturnResult(pgxmock.NewResult("UPDATE", 0))
 
-	err = repo.UpdateScheduleEntryInTx(ctx, mockTx, entryToUpdate)
+	err := repo.UpdateScheduleEntryInTx(ctx, mockPool, entryToUpdate)
 
 	assert.Error(t, err)
 	assert.ErrorIs(t, err, apperrors.ErrDatabase)
@@ -709,19 +689,15 @@ func TestLoanRepository_UpdateLoanStatusInTx_Success(t *testing.T) {
 	defer mockPool.Close()
 
 	loanID := int64(10)
-	newStatus := loan.LoanStatusPaid
-
-	mockTx, err := mockPool.Begin(ctx)
-	require.NoError(t, err)
-	mockTxIface := mockTx.(pgxmock.PgxCommonIface)
+	newStatus := loan.StatusPaidOff
 
 	sql := `UPDATE loans SET status = $1, updated_at = NOW() WHERE id = $2`
 
-	mockTxIface.ExpectExec(regexp.QuoteMeta(sql)).
+	mockPool.ExpectExec(regexp.QuoteMeta(sql)).
 		WithArgs(newStatus, loanID).
 		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
-	err = repo.UpdateLoanStatusInTx(ctx, mockTx, loanID, newStatus)
+	err := repo.UpdateLoanStatusInTx(ctx, mockPool, loanID, newStatus)
 
 	assert.NoError(t, err)
 }
@@ -731,16 +707,12 @@ func TestLoanRepository_CheckIfAllPaymentsMadeInTx_True(t *testing.T) {
 	defer mockPool.Close()
 	loanID := int64(10)
 
-	mockTx, err := mockPool.Begin(ctx)
-	require.NoError(t, err)
-	mockTxIface := mockTx.(pgxmock.PgxCommonIface)
-
 	query := `SELECT COUNT(*) FROM loan_schedule WHERE loan_id = $1 AND status != 'PAID'`
 	rows := pgxmock.NewRows([]string{"count"}).AddRow(0)
 
-	mockTxIface.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(loanID).WillReturnRows(rows)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(loanID).WillReturnRows(rows)
 
-	allPaid, err := repo.CheckIfAllPaymentsMadeInTx(ctx, mockTx, loanID)
+	allPaid, err := repo.CheckIfAllPaymentsMadeInTx(ctx, mockPool, loanID)
 
 	assert.NoError(t, err)
 	assert.True(t, allPaid)
@@ -751,16 +723,12 @@ func TestLoanRepository_CheckIfAllPaymentsMadeInTx_False(t *testing.T) {
 	defer mockPool.Close()
 	loanID := int64(10)
 
-	mockTx, err := mockPool.Begin(ctx)
-	require.NoError(t, err)
-	mockTxIface := mockTx.(pgxmock.PgxCommonIface)
-
 	query := `SELECT COUNT(*) FROM loan_schedule WHERE loan_id = $1 AND status != 'PAID'`
 	rows := pgxmock.NewRows([]string{"count"}).AddRow(2)
 
-	mockTxIface.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(loanID).WillReturnRows(rows)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(loanID).WillReturnRows(rows)
 
-	allPaid, err := repo.CheckIfAllPaymentsMadeInTx(ctx, mockTx, loanID)
+	allPaid, err := repo.CheckIfAllPaymentsMadeInTx(ctx, mockPool, loanID)
 
 	assert.NoError(t, err)
 	assert.False(t, allPaid)
@@ -772,14 +740,10 @@ func TestLoanRepository_CheckIfAllPaymentsMadeInTx_DBError(t *testing.T) {
 	loanID := int64(10)
 	dbErr := errors.New("count query failed")
 
-	mockTx, err := mockPool.Begin(ctx)
-	require.NoError(t, err)
-	mockTxIface := mockTx.(pgxmock.PgxCommonIface)
-
 	query := `SELECT COUNT(*) FROM loan_schedule WHERE loan_id = $1 AND status != 'PAID'`
-	mockTxIface.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(loanID).WillReturnError(dbErr)
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(loanID).WillReturnError(dbErr)
 
-	allPaid, err := repo.CheckIfAllPaymentsMadeInTx(ctx, mockTx, loanID)
+	allPaid, err := repo.CheckIfAllPaymentsMadeInTx(ctx, mockPool, loanID)
 
 	assert.Error(t, err)
 	assert.False(t, allPaid)
