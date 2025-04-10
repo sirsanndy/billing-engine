@@ -292,10 +292,10 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "annualInterestRate": {
-                    "type": "string"
+                    "type": "number"
                 },
                 "principal": {
-                    "type": "string"
+                    "type": "number"
                 },
                 "startDate": {
                     "type": "string"
