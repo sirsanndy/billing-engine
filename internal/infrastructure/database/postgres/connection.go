@@ -36,6 +36,10 @@ func NewConnectionPool(ctx context.Context, cfg config.DatabaseConfig, logger *s
 }
 
 func configurePool(cfg config.DatabaseConfig) (*pgxpool.Config, error) {
+	if cfg.URL == "" {
+		return nil, fmt.Errorf("database URL is empty in configuration")
+	}
+
 	poolConfig, err := pgxpool.ParseConfig(cfg.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse database config from URL: %w", err)

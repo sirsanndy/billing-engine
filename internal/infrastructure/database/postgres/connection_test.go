@@ -1,7 +1,7 @@
 package postgres
 
 import (
-	"billing-engine/internal/config" // Adjust import path if needed
+	"billing-engine/internal/config"
 	"context"
 	"log/slog"
 	"os"
@@ -12,28 +12,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Helper to create a discard logger for tests
 func newTestLogger() *slog.Logger {
-	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug})) // Use Stderr for visibility during testing if needed, or io.DiscardHandler
-	// return slog.New(slog.NewTextHandler(io.Discard, nil)) // Use io.Discard to suppress logs during tests
+	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
 }
 
 func TestConfigurePool(t *testing.T) {
 	t.Run("ValidURL", func(t *testing.T) {
 		cfg := config.DatabaseConfig{
-			URL: "postgres://user:password@host:port/dbname?sslmode=disable",
+			URL: "postgres://user:password@host:8080/dbname?sslmode=disable",
 		}
 
 		poolConfig, err := configurePool(cfg)
 		require.NoError(t, err)
 		require.NotNil(t, poolConfig)
 
-		// Check default settings applied
 		assert.Equal(t, int32(10), poolConfig.MaxConns)
 		assert.Equal(t, 5*time.Minute, poolConfig.MaxConnIdleTime)
 		assert.Equal(t, 1*time.Minute, poolConfig.HealthCheckPeriod)
 
-		// Check basic parsing from URL
 		assert.Equal(t, "host", poolConfig.ConnConfig.Host)
 		assert.Equal(t, "dbname", poolConfig.ConnConfig.Database)
 		assert.Equal(t, "user", poolConfig.ConnConfig.User)
@@ -41,7 +38,7 @@ func TestConfigurePool(t *testing.T) {
 
 	t.Run("InvalidURL", func(t *testing.T) {
 		cfg := config.DatabaseConfig{
-			URL: "://invalid-url-format", // Malformed URL
+			URL: "://invalid-url-format",
 		}
 
 		poolConfig, err := configurePool(cfg)
@@ -51,14 +48,14 @@ func TestConfigurePool(t *testing.T) {
 	})
 
 	t.Run("EmptyURL", func(t *testing.T) {
-		// configurePool expects a non-empty URL as pgxpool.ParseConfig does
+
 		cfg := config.DatabaseConfig{
 			URL: "",
 		}
 		poolConfig, err := configurePool(cfg)
-		require.Error(t, err) // pgxpool.ParseConfig returns error for empty string
+		require.Error(t, err)
 		assert.Nil(t, poolConfig)
-		assert.Contains(t, err.Error(), "cannot be blank") // Error message from pgxpool
+		assert.Contains(t, err.Error(), "database URL is empty in configuration")
 	})
 }
 
@@ -68,7 +65,7 @@ func TestNewConnectionPool(t *testing.T) {
 
 	t.Run("EmptyURLConfig", func(t *testing.T) {
 		cfg := config.DatabaseConfig{
-			URL: "", // Explicitly empty URL
+			URL: "",
 		}
 
 		dbpool, err := NewConnectionPool(ctx, cfg, logger)
@@ -79,7 +76,7 @@ func TestNewConnectionPool(t *testing.T) {
 	})
 
 	t.Run("InvalidURLFormat", func(t *testing.T) {
-		// This tests the error propagation from configurePool
+
 		cfg := config.DatabaseConfig{
 			URL: "://invalid-url",
 		}
@@ -88,7 +85,7 @@ func TestNewConnectionPool(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Nil(t, dbpool)
-		// We expect the error message from configurePool, wrapped by its caller if applicable (here it's not wrapped further)
+
 		assert.Contains(t, err.Error(), "failed to parse database config from URL")
 	})
 }
