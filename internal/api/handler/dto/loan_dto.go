@@ -10,18 +10,18 @@ import (
 )
 
 type CreateLoanRequest struct {
-	Principal          string `json:"principal"`
-	TermWeeks          int    `json:"termWeeks"`
-	AnnualInterestRate string `json:"annualInterestRate"`
-	StartDate          string `json:"startDate"`
+	Principal          float64 `json:"principal"`
+	TermWeeks          int     `json:"termWeeks"`
+	AnnualInterestRate float64 `json:"annualInterestRate"`
+	StartDate          string  `json:"startDate"`
 }
 
 func (r *CreateLoanRequest) Validate() error {
-	if _, err := decimal.NewFromString(r.Principal); err != nil || r.Principal == "" {
-		return fmt.Errorf("invalid principal amount: %w", err)
+	if r.Principal <= 0 {
+		return fmt.Errorf("principal must be grater than zero")
 	}
-	if _, err := decimal.NewFromString(r.AnnualInterestRate); err != nil || r.AnnualInterestRate == "" {
-		return fmt.Errorf("invalid annual interest rate: %w", err)
+	if r.AnnualInterestRate <= 0 {
+		return fmt.Errorf("annualInterestRate must be greater than zero")
 	}
 	if r.TermWeeks <= 0 {
 		return fmt.Errorf("termWeeks must be positive")

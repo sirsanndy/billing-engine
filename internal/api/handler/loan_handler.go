@@ -107,18 +107,9 @@ func (h *LoanHandler) CreateLoan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	principal, errP := decimal.NewFromString(req.Principal)
-	interestRate, errR := decimal.NewFromString(req.AnnualInterestRate)
-	if errP != nil || errR != nil {
-		respondError(w, fmt.Errorf("%w: invalid numeric format for principal or interest rate", apperrors.ErrInvalidArgument))
-		return
-	}
 	startDate, _ := time.Parse(time.RFC3339[:10], req.StartDate)
 
-	principalFloat, _ := principal.Float64()
-	interestRateFloat, _ := interestRate.Float64()
-
-	createdLoan, err := h.service.CreateLoan(r.Context(), principalFloat, req.TermWeeks, interestRateFloat, startDate)
+	createdLoan, err := h.service.CreateLoan(r.Context(), req.Principal, req.TermWeeks, req.AnnualInterestRate, startDate)
 	if err != nil {
 		respondError(w, err)
 		return
