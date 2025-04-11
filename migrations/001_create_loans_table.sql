@@ -2,12 +2,12 @@
 CREATE TABLE loans (
     id BIGSERIAL PRIMARY KEY,
     principal_amount DECIMAL(15, 2) NOT NULL CHECK (principal_amount > 0),
-    interest_rate DECIMAL(5, 4) NOT NULL CHECK (interest_rate >= 0), -- e.g., 0.10 for 10%
+    interest_rate DECIMAL(5, 4) NOT NULL CHECK (interest_rate >= 0),
     term_weeks INT NOT NULL CHECK (term_weeks > 0),
     weekly_payment_amount DECIMAL(15, 2) NOT NULL CHECK (weekly_payment_amount >= 0),
     total_loan_amount DECIMAL(15, 2) NOT NULL CHECK (total_loan_amount >= principal_amount),
     start_date DATE NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'PAID_OFF', 'DELINQUENT')), -- Delinquent status might be better tracked dynamically or separately
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'PAID_OFF', 'DELINQUENT')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
