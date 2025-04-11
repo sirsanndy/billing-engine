@@ -211,7 +211,7 @@ Here is a summary of the available endpoints grouped by tags based on the Swagge
     * **Path Params:** `loanID` (integer)
     * **Success:** `200 OK` (`dto.OutstandingResponse`)
     * **Failure:** `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`
-* **`POST /loans/{loanID}/payments`** (*Verify path, handler might use `/payment`*)
+* **`POST /loans/{loanID}/payments`**
     * **Summary:** Make a loan payment.
     * **Security:** BearerAuth
     * **Path Params:** `loanID` (integer)
@@ -281,5 +281,6 @@ billing-engine/
 ├── config.yml
 ├── go.mod
 ├── go.sum
+├── Makefile
 └── README.md
 ```
