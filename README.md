@@ -48,7 +48,7 @@ This is the API documentation for the Billing Engine service. It manages custome
 
 1.  **Clone the repository:**
     ```bash
-    git clone <your-repository-url>
+    git clone https://github.com/sirsanndy/billing-engine.git
     cd billing-engine
     ```
 
