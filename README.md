@@ -227,7 +227,7 @@ Here is a summary of the available endpoints grouped by tags based on the Swagge
 - Slog as Logger
 - Prometheus as Application Performance Monitoring
 - Cron as Cron Job to Update Delinquency Status of Loan
-- Unit Test
+- pgxmock for mocking pgxpool and pgxconn for Unit Test
 
 ## Project Structure
 ```
