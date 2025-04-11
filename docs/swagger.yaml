@@ -1,14 +1,47 @@
 definitions:
+  dto.AssignLoanRequest:
+    properties:
+      loanId:
+        type: integer
+    type: object
+  dto.CreateCustomerRequest:
+    properties:
+      address:
+        type: string
+      name:
+        type: string
+    type: object
   dto.CreateLoanRequest:
     properties:
       annualInterestRate:
         type: number
+      customerId:
+        type: integer
       principal:
         type: number
       startDate:
         type: string
       termWeeks:
         type: integer
+    type: object
+  dto.CustomerResponse:
+    properties:
+      active:
+        type: boolean
+      address:
+        type: string
+      createDate:
+        type: string
+      customerId:
+        type: string
+      isDelinquent:
+        type: boolean
+      loanId:
+        type: string
+      name:
+        type: string
+      updatedAt:
+        type: string
     type: object
   dto.DelinquentResponse:
     properties:
@@ -58,6 +91,11 @@ definitions:
       weeklyPaymentAmount:
         type: string
     type: object
+  dto.MakePaymentRequest:
+    properties:
+      amount:
+        type: string
+    type: object
   dto.OutstandingResponse:
     properties:
       loanId:
@@ -86,6 +124,16 @@ definitions:
     properties:
       username:
         type: string
+    type: object
+  dto.UpdateCustomerAddressRequest:
+    properties:
+      address:
+        type: string
+    type: object
+  dto.UpdateDelinquencyRequest:
+    properties:
+      isDelinquent:
+        type: boolean
     type: object
 host: localhost:8080
 info:
@@ -133,6 +181,301 @@ paths:
       summary: Generate a JWT bearer token
       tags:
       - Authentication
+  /customers:
+    get:
+      description: Retrieves the customer associated with a specific loan ID.
+      parameters:
+      - description: Loan ID to search for
+        in: query
+        minimum: 1
+        name: loan_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Customer details retrieved
+          schema:
+            $ref: '#/definitions/dto.CustomerResponse'
+        "400":
+          description: Invalid or missing loan_id query parameter
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Customer not found for the given loan ID
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Find customer by loan ID
+      tags:
+      - Customers
+    post:
+      consumes:
+      - application/json
+      description: Creates a new customer record with name and address.
+      parameters:
+      - description: Customer creation request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Customer successfully created
+          schema:
+            $ref: '#/definitions/dto.CustomerResponse'
+        "400":
+          description: Invalid request payload (e.g., empty name/address)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error during creation
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create a new customer
+      tags:
+      - Customers
+  /customers/{customerID}:
+    delete:
+      description: Marks a customer account as inactive. Fails if the customer has
+        an associated loan that is not paid off.
+      parameters:
+      - description: Customer ID
+        in: path
+        minimum: 1
+        name: customerID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Customer successfully deactivated
+        "400":
+          description: Invalid customer ID
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Customer not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict (e.g., customer has an active loan)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Deactivate a customer
+      tags:
+      - Customers
+    get:
+      description: Retrieves details for a specific customer by their ID.
+      parameters:
+      - description: Customer ID
+        in: path
+        minimum: 1
+        name: customerID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Customer details retrieved
+          schema:
+            $ref: '#/definitions/dto.CustomerResponse'
+        "400":
+          description: Invalid customer ID format
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Customer not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Retrieve customer details
+      tags:
+      - Customers
+  /customers/{customerID}/address:
+    put:
+      consumes:
+      - application/json
+      description: Updates the address for a specific customer.
+      parameters:
+      - description: Customer ID
+        in: path
+        minimum: 1
+        name: customerID
+        required: true
+        type: integer
+      - description: New address payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateCustomerAddressRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Address successfully updated
+        "400":
+          description: Invalid customer ID or request payload (e.g., empty address)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Customer not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update customer address
+      tags:
+      - Customers
+  /customers/{customerID}/delinquency:
+    put:
+      consumes:
+      - application/json
+      description: Sets the delinquency status for a specific customer.
+      parameters:
+      - description: Customer ID
+        in: path
+        minimum: 1
+        name: customerID
+        required: true
+        type: integer
+      - description: 'Delinquency status payload (`isDelinquent`: true/false)'
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateDelinquencyRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Delinquency status successfully updated
+        "400":
+          description: Invalid customer ID or request payload
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Customer not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update customer delinquency status
+      tags:
+      - Customers
+  /customers/{customerID}/loan:
+    put:
+      consumes:
+      - application/json
+      description: Associates a loan ID with a specific customer. Fails if the customer
+        already has a different loan assigned or if the loan ID is already in use
+        by another customer.
+      parameters:
+      - description: Customer ID
+        in: path
+        minimum: 1
+        name: customerID
+        required: true
+        type: integer
+      - description: Loan ID payload (loanId must be positive)
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.AssignLoanRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Loan successfully assigned
+        "400":
+          description: Invalid customer ID or request payload (e.g., invalid loan
+            ID)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Customer not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "409":
+          description: Conflict (e.g., customer already has loan, loan ID already
+            assigned)
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Assign a loan to a customer
+      tags:
+      - Customers
+  /customers/{customerID}/reactivate:
+    put:
+      description: Marks a customer account as active.
+      parameters:
+      - description: Customer ID
+        in: path
+        minimum: 1
+        name: customerID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Customer successfully reactivated
+        "400":
+          description: Invalid customer ID
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Customer not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Reactivate a customer
+      tags:
+      - Customers
   /loans:
     post:
       consumes:
@@ -270,6 +613,50 @@ paths:
       security:
       - BearerAuth: []
       summary: Retrieve outstanding loan amount
+      tags:
+      - Loans
+  /loans/{loanID}/payments:
+    post:
+      consumes:
+      - application/json
+      description: This endpoint processes a payment for a loan by its ID. The payment
+        amount must be specified in the request payload.
+      parameters:
+      - description: Loan ID
+        in: path
+        name: loanID
+        required: true
+        type: integer
+      - description: Payment request payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.MakePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Payment successfully processed
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid loan ID, request payload, or validation error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "404":
+          description: Loan not found
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/dto.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Make a loan payment
       tags:
       - Loans
 securityDefinitions:
