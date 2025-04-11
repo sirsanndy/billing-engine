@@ -57,8 +57,6 @@ func (h *AuthHandler) GenerateBearerToken(w http.ResponseWriter, r *http.Request
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
-	h.logger.Info("Creating token", token)
-	h.logger.Info("Checking token signing method", token.Method)
 	tokenString, _ := token.SignedString([]byte(h.cfg.Server.Auth.JWTSecret))
 	respondJSON(w, http.StatusOK, map[string]string{"token": fmt.Sprintf("Bearer %s", tokenString)})
 }

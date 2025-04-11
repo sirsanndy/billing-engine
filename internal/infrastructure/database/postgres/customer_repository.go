@@ -117,7 +117,7 @@ func (r *CustomerRepository) createCustomer(ctx context.Context, cust *customer.
 		translatedErr := translateDBError(err, r.logger)
 		if errors.Is(translatedErr, apperrors.ErrAlreadyExists) {
 
-			r.logger.WarnContext(ctx, "Failed to insert customer due to unique constraint violation", cust.LoanID)
+			r.logger.WarnContext(ctx, "Failed to insert customer due to unique constraint violation")
 
 			return translatedErr
 		}
@@ -156,7 +156,7 @@ func (r *CustomerRepository) updateCustomer(ctx context.Context, cust *customer.
 
 		translatedErr := translateDBError(err, r.logger)
 		if errors.Is(translatedErr, apperrors.ErrAlreadyExists) {
-			r.logger.WarnContext(ctx, "Failed to update customer due to unique constraint violation", slog.Any("error", err), cust.LoanID)
+			r.logger.WarnContext(ctx, "Failed to update customer due to unique constraint violation", slog.Any("error", err))
 			return translatedErr
 		}
 		r.logger.ErrorContext(ctx, "Failed to update customer", slog.Any("error", err))

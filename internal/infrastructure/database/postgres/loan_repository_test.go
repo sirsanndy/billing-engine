@@ -227,9 +227,17 @@ func TestCreateLoanWithSchedule(t *testing.T) {
 	}
 
 	mockPool.SendBatch(ctx, batch)
+	updateCustomerSQL := `
+        UPDATE customers
+        SET loan_id = $1, updated_at = NOW()
+        WHERE id = $2 AND loan_id IS NULL`
+	mockPool.ExpectExec(regexp.QuoteMeta(updateCustomerSQL)).WithArgs(testLoanID, int64(1)).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 	mockPool.ExpectCommit()
 
-	createdLoan, err := repo.CreateLoan(ctx, newLoan, schedule)
+	customerID := int64(1)
+
+	createdLoan, err := repo.CreateLoan(ctx, customerID, newLoan, schedule)
 
 	assert.NoError(t, err)
 	require.NotNil(t, createdLoan)
@@ -244,6 +252,7 @@ func TestLoanRepositoryCreateLoanSuccessNoSchedule(t *testing.T) {
 
 	now := time.Now()
 	testLoanID := int64(124)
+	customerID := int64(1)
 	newLoan := &loan.Loan{
 		PrincipalAmount:     2000.0,
 		InterestRate:        4.0,
@@ -274,9 +283,15 @@ func TestLoanRepositoryCreateLoanSuccessNoSchedule(t *testing.T) {
 		WithArgs(newLoan.PrincipalAmount, newLoan.InterestRate, newLoan.TermWeeks, newLoan.WeeklyPaymentAmount, newLoan.TotalLoanAmount, newLoan.StartDate, newLoan.Status).
 		WillReturnRows(loanRows)
 
+	updateCustomerSQL := `
+        UPDATE customers
+        SET loan_id = $1, updated_at = NOW()
+        WHERE id = $2 AND loan_id IS NULL`
+	mockPool.ExpectExec(regexp.QuoteMeta(updateCustomerSQL)).WithArgs(testLoanID, int64(1)).
+		WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 	mockPool.ExpectCommit()
 
-	createdLoan, err := repo.CreateLoan(ctx, newLoan, schedule)
+	createdLoan, err := repo.CreateLoan(ctx, customerID, newLoan, schedule)
 
 	assert.NoError(t, err)
 	require.NotNil(t, createdLoan)
@@ -301,9 +316,12 @@ func TestCreateLoanErrorLoanInsertFails(t *testing.T) {
 	mockPool.ExpectQuery(regexp.QuoteMeta(loanSQL)).
 		WithArgs(newLoan.PrincipalAmount, newLoan.InterestRate, newLoan.TermWeeks, newLoan.WeeklyPaymentAmount, newLoan.TotalLoanAmount, newLoan.StartDate, newLoan.Status).
 		WillReturnError(dbErr)
+
 	mockPool.ExpectRollback()
 
-	createdLoan, err := repo.CreateLoan(ctx, newLoan, schedule)
+	customerID := int64(1)
+
+	createdLoan, err := repo.CreateLoan(ctx, customerID, newLoan, schedule)
 
 	assert.Error(t, err)
 	assert.Nil(t, createdLoan)
@@ -501,7 +519,7 @@ func TestLoanRepository_GetUnpaidSchedules_Success(t *testing.T) {
 	query := `
         SELECT id, loan_id, week_number, due_date, due_amount, paid_amount, payment_date, status, created_at, updated_at
         FROM loan_schedule
-        WHERE loan_id = $1 AND status != 'PAID' -- PENDING or MISSED
+        WHERE loan_id = $1 AND status != 'PAID'
         ORDER BY due_date ASC`
 
 	cols := []string{"id", "loan_id", "week_number", "due_date", "due_amount", "paid_amount", "payment_date", "status", "created_at", "updated_at"}
@@ -534,8 +552,9 @@ func TestLoanRepository_GetLastTwoDueUnpaidSchedules_Success(t *testing.T) {
 	query := `
         SELECT id, loan_id, week_number, due_date, due_amount, paid_amount, payment_date, status, created_at, updated_at
         FROM loan_schedule
-        WHERE loan_id = $1 AND status != 'PAID' -- PENDING or MISSED
-        ORDER BY due_date DESC -- Order by due date DESC
+        WHERE loan_id = $1 AND status not in ('PAID')
+		AND due_date < NOW()
+        ORDER BY due_date DESC
         LIMIT 2`
 
 	cols := []string{"id", "loan_id", "week_number", "due_date", "due_amount", "paid_amount", "payment_date", "status", "created_at", "updated_at"}

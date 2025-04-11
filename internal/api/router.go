@@ -67,7 +67,7 @@ func setupSwaggerEndpoint(router *chi.Mux, logger *slog.Logger) {
 func setupLoanRoutes(router *chi.Mux, loanService loan.LoanService, cfg *config.Config, logger *slog.Logger) {
 	loanHandler := handler.NewLoanHandler(loanService, logger)
 	authHandler := handler.NewAuthHandler(*cfg, logger)
-	logger.Info("Config", cfg)
+	logger.Info("Route Config")
 	router.Route("/auth", func(r chi.Router) {
 		r.Post("/token", authHandler.GenerateBearerToken)
 	})
