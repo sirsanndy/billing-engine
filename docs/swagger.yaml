@@ -135,7 +135,6 @@ definitions:
       isDelinquent:
         type: boolean
     type: object
-host: localhost:8080
 info:
   contact:
     email: support@billing-engine.com
@@ -660,10 +659,6 @@ paths:
       tags:
       - Loans
 securityDefinitions:
-  ApiKeyAuth:
-    in: header
-    name: X-API-KEY
-    type: apiKey
   BearerAuth:
     in: header
     name: Authorization

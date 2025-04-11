@@ -15,7 +15,6 @@
         },
         "version": "1.0"
     },
-    "host": "localhost:8080",
     "paths": {
         "/auth/token": {
             "post": {
@@ -1012,11 +1011,6 @@
         }
     },
     "securityDefinitions": {
-        "ApiKeyAuth": {
-            "type": "apiKey",
-            "name": "X-API-KEY",
-            "in": "header"
-        },
         "BearerAuth": {
             "type": "apiKey",
             "name": "Authorization",

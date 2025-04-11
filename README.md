@@ -108,9 +108,6 @@ The API uses two potential authentication methods as defined in the Swagger spec
         ```
         Authorization: Bearer <your_jwt_token>
         ```
-* **API Key Authentication (`ApiKeyAuth`)**:
-    * Requires an API key to be sent in the `X-API-KEY` header.
-    * *(Clarify which endpoints, if any, use this method instead of or in addition to BearerAuth).*
 
 ### Endpoints
 
