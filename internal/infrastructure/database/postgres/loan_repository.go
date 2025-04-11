@@ -34,6 +34,8 @@ var _ DBPool = (*pgxpool.Pool)(nil)
 
 var _ DBPool = (pgxmock.PgxPoolIface)(nil)
 
+var errMsgFormat = "%w: %w"
+
 func NewLoanRepository(db DBPool, logger *slog.Logger) *LoanRepository {
 	return &LoanRepository{db: db, logger: logger.With("component", "LoanRepository")}
 }
@@ -42,7 +44,7 @@ func (r *LoanRepository) BeginTx(ctx context.Context) (pgx.Tx, error) {
 	tx, err := r.db.Begin(ctx)
 	if err != nil {
 		r.logger.ErrorContext(ctx, "Failed to begin transaction", "error", err)
-		return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 	return tx, nil
 }
@@ -52,7 +54,7 @@ func (r *LoanRepository) CommitTx(ctx context.Context, tx pgx.Tx) error {
 	if err != nil {
 
 		r.logger.ErrorContext(ctx, "Failed to commit transaction", "error", err)
-		return fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 	return nil
 }
@@ -63,7 +65,7 @@ func (r *LoanRepository) RollbackTx(ctx context.Context, tx pgx.Tx) error {
 	if err != nil && !errors.Is(err, pgx.ErrTxClosed) {
 		r.logger.ErrorContext(ctx, "Failed to rollback transaction", "error", err)
 
-		return fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 	return nil
 }
@@ -175,7 +177,7 @@ func (r *LoanRepository) GetLoanByID(ctx context.Context, loanID int64) (*loan.L
 			return nil, apperrors.ErrNotFound
 		}
 		r.logger.ErrorContext(ctx, "Failed to get loan by ID", "loan_id", loanID, "error", err)
-		return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 	return &l, nil
 }
@@ -190,7 +192,7 @@ func (r *LoanRepository) GetScheduleByLoanID(ctx context.Context, loanID int64) 
 	rows, err := r.db.Query(ctx, query, loanID)
 	if err != nil {
 		r.logger.ErrorContext(ctx, "Failed to query loan schedule", "loan_id", loanID, "error", err)
-		return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 	defer rows.Close()
 
@@ -204,14 +206,14 @@ func (r *LoanRepository) GetScheduleByLoanID(ctx context.Context, loanID int64) 
 		)
 		if err != nil {
 			r.logger.ErrorContext(ctx, "Failed to scan schedule row", "loan_id", loanID, "error", err)
-			return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+			return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 		}
 		schedule = append(schedule, entry)
 	}
 
 	if err = rows.Err(); err != nil {
 		r.logger.ErrorContext(ctx, "Error iterating schedule rows", "loan_id", loanID, "error", err)
-		return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 
 	return schedule, nil
@@ -227,7 +229,7 @@ func (r *LoanRepository) GetUnpaidSchedules(ctx context.Context, loanID int64) (
 	rows, err := r.db.Query(ctx, query, loanID)
 	if err != nil {
 		r.logger.ErrorContext(ctx, "Failed to query unpaid schedules", "loan_id", loanID, "error", err)
-		return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 	defer rows.Close()
 
@@ -241,14 +243,14 @@ func (r *LoanRepository) GetUnpaidSchedules(ctx context.Context, loanID int64) (
 		)
 		if err != nil {
 			r.logger.ErrorContext(ctx, "Failed to scan unpaid schedule row", "loan_id", loanID, "error", err)
-			return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+			return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 		}
 		schedule = append(schedule, entry)
 	}
 
 	if err = rows.Err(); err != nil {
 		r.logger.ErrorContext(ctx, "Error iterating unpaid schedule rows", "loan_id", loanID, "error", err)
-		return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 
 	return schedule, nil
@@ -266,7 +268,7 @@ func (r *LoanRepository) GetLastTwoDueUnpaidSchedules(ctx context.Context, loanI
 	rows, err := r.db.Query(ctx, query, loanID)
 	if err != nil {
 		r.logger.ErrorContext(ctx, "Failed to query last two unpaid schedules", "loan_id", loanID, "error", err)
-		return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 	defer rows.Close()
 
@@ -280,14 +282,14 @@ func (r *LoanRepository) GetLastTwoDueUnpaidSchedules(ctx context.Context, loanI
 		)
 		if err != nil {
 			r.logger.ErrorContext(ctx, "Failed to scan last two unpaid schedule row", "loan_id", loanID, "error", err)
-			return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+			return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 		}
 		schedule = append(schedule, entry)
 	}
 
 	if err = rows.Err(); err != nil {
 		r.logger.ErrorContext(ctx, "Error iterating last two unpaid schedule rows", "loan_id", loanID, "error", err)
-		return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 
 	return schedule, nil
@@ -317,7 +319,7 @@ func (r *LoanRepository) FindOldestUnpaidEntryForUpdate(ctx context.Context, tx 
 			return nil, apperrors.ErrNotFound
 		}
 		r.logger.ErrorContext(ctx, "Failed to find/lock oldest unpaid schedule entry", "loan_id", loanID, "error", err)
-		return nil, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return nil, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 	return &entry, nil
 }
@@ -331,7 +333,7 @@ func (r *LoanRepository) UpdateScheduleEntryInTx(ctx context.Context, tx pgx.Tx,
 	cmdTag, err := tx.Exec(ctx, sql, entry.PaidAmount, entry.PaymentDate, entry.Status, entry.ID, entry.LoanID)
 	if err != nil {
 		r.logger.ErrorContext(ctx, "Failed to update schedule entry", "entry_id", entry.ID, "loan_id", entry.LoanID, "error", err)
-		return fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 	if cmdTag.RowsAffected() != 1 {
 		r.logger.ErrorContext(ctx, "Schedule entry update affected zero rows", "entry_id", entry.ID, "loan_id", entry.LoanID)
@@ -346,7 +348,7 @@ func (r *LoanRepository) UpdateLoanStatusInTx(ctx context.Context, tx pgx.Tx, lo
 	cmdTag, err := tx.Exec(ctx, sql, status, loanID)
 	if err != nil {
 		r.logger.ErrorContext(ctx, "Failed to update loan status", "loan_id", loanID, "status", status, "error", err)
-		return fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 	if cmdTag.RowsAffected() != 1 {
 		r.logger.ErrorContext(ctx, "Loan status update affected zero rows", "loan_id", loanID, "status", status)
@@ -362,7 +364,7 @@ func (r *LoanRepository) CheckIfAllPaymentsMadeInTx(ctx context.Context, tx pgx.
 	err := tx.QueryRow(ctx, query, loanID).Scan(&count)
 	if err != nil {
 		r.logger.ErrorContext(ctx, "Failed to count non-paid schedule entries", "loan_id", loanID, "error", err)
-		return false, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+		return false, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 	}
 	return count == 0, nil
 }
@@ -380,7 +382,7 @@ func (r *LoanRepository) GetTotalOutstandingAmount(ctx context.Context, loanID i
 
 		if !errors.Is(err, pgx.ErrNoRows) {
 			r.logger.ErrorContext(ctx, "Failed to calculate total outstanding amount", "loan_id", loanID, "error", err)
-			return 0, fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+			return 0, fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 		}
 	}
 
@@ -412,7 +414,7 @@ func translateDBError(err error, contextLogger *slog.Logger) error {
 	}
 
 	contextLogger.Error("Generic database error", "error", err)
-	return fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+	return fmt.Errorf(errMsgFormat, apperrors.ErrDatabase, err)
 }
 
 func (r *LoanRepository) GetAllActiveLoanIDs(ctx context.Context) ([]int64, error) {
