@@ -1,6 +1,7 @@
 package loan
 
 import (
+	"billing-engine/internal/domain/customer"
 	"context"
 	"log/slog"
 	"os"
@@ -14,20 +15,182 @@ import (
 
 var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
 
+type MockCustomerService struct {
+	mock.Mock
+}
+
+func (_m *MockCustomerService) CreateNewCustomer(ctx context.Context, name string, address string) (*customer.Customer, error) {
+	ret := _m.Called(ctx, name, address)
+
+	var r0 *customer.Customer
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) *customer.Customer); ok {
+		r0 = rf(ctx, name, address)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*customer.Customer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, name, address)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetCustomer provides a mock function with given fields: ctx, customerID
+func (_m *MockCustomerService) GetCustomer(ctx context.Context, customerID int64) (*customer.Customer, error) {
+	ret := _m.Called(ctx, customerID)
+
+	var r0 *customer.Customer
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *customer.Customer); ok {
+		r0 = rf(ctx, customerID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*customer.Customer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, customerID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+func (_m *MockCustomerService) ListActiveCustomers(ctx context.Context) ([]*customer.Customer, error) {
+	ret := _m.Called(ctx)
+
+	var r0 []*customer.Customer
+	if rf, ok := ret.Get(0).(func(context.Context) []*customer.Customer); ok {
+		r0 = rf(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*customer.Customer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+func (_m *MockCustomerService) UpdateCustomerAddress(ctx context.Context, customerID int64, newAddress string) error {
+	ret := _m.Called(ctx, customerID, newAddress)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, string) error); ok {
+		r0 = rf(ctx, customerID, newAddress)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+func (_m *MockCustomerService) AssignLoanToCustomer(ctx context.Context, customerID int64, loanID int64) error {
+	ret := _m.Called(ctx, customerID, loanID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64) error); ok {
+		r0 = rf(ctx, customerID, loanID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+func (_m *MockCustomerService) UpdateDelinquency(ctx context.Context, customerID int64, isDelinquent bool) error {
+	ret := _m.Called(ctx, customerID, isDelinquent)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, bool) error); ok {
+		r0 = rf(ctx, customerID, isDelinquent)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+func (_m *MockCustomerService) DeactivateCustomer(ctx context.Context, customerID int64) error {
+	ret := _m.Called(ctx, customerID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
+		r0 = rf(ctx, customerID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+func (_m *MockCustomerService) ReactivateCustomer(ctx context.Context, customerID int64) error {
+	ret := _m.Called(ctx, customerID)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64) error); ok {
+		r0 = rf(ctx, customerID)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+func (_m *MockCustomerService) FindCustomerByLoan(ctx context.Context, loanID int64) (*customer.Customer, error) {
+	ret := _m.Called(ctx, loanID)
+
+	var r0 *customer.Customer
+	if rf, ok := ret.Get(0).(func(context.Context, int64) *customer.Customer); ok {
+		r0 = rf(ctx, loanID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*customer.Customer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(context.Context, int64) error); ok {
+		r1 = rf(ctx, loanID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 func TestCreateLoan(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewLoanService(mockRepo, logger)
+	mockCustomerService := new(MockCustomerService)
+	service := NewLoanService(mockRepo, mockCustomerService, logger)
 
 	ctx := context.Background()
 	principal := Money(1000)
 	termWeeks := 52
 	annualInterestRate := Money(5)
 	startDate := time.Now()
+	customerID := int64(1)
 
 	loan := &Loan{}
-	mockRepo.On("CreateLoan", ctx, mock.Anything, mock.Anything).Return(loan, nil)
+	mockRepo.On("CreateLoan", ctx, mock.Anything, mock.Anything, mock.Anything).Return(loan, nil)
+	mockCustomerService.On("GetCustomer", ctx, customerID).Return(&customer.Customer{CustomerID: customerID, Active: true}, nil)
+	mockCustomerService.On("AssignLoanToCustomer", ctx, customerID, mock.Anything).Return(nil)
 
-	result, err := service.CreateLoan(ctx, principal, termWeeks, annualInterestRate, startDate)
+	result, err := service.CreateLoan(ctx, customerID, principal, termWeeks, annualInterestRate, startDate)
 
 	assert.NoError(t, err)
 	assert.Equal(t, loan, result)
@@ -37,7 +200,8 @@ func TestCreateLoan(t *testing.T) {
 func TestGetOutstanding(t *testing.T) {
 	mockRepo := new(MockRepository)
 
-	service := NewLoanService(mockRepo, logger)
+	mockCustomerService := new(MockCustomerService)
+	service := NewLoanService(mockRepo, mockCustomerService, logger)
 
 	ctx := context.Background()
 	loanID := int64(1)
@@ -55,7 +219,8 @@ func TestGetOutstanding(t *testing.T) {
 func TestIsDelinquent(t *testing.T) {
 	mockRepo := new(MockRepository)
 
-	service := NewLoanService(mockRepo, logger)
+	mockCustomerService := new(MockCustomerService)
+	service := NewLoanService(mockRepo, mockCustomerService, logger)
 
 	ctx := context.Background()
 	loanID := int64(1)
@@ -76,7 +241,8 @@ func TestMakePayment(t *testing.T) {
 	}
 	mockRepo := new(MockRepository)
 
-	service := NewLoanService(mockRepo, logger)
+	mockCustomerService := new(MockCustomerService)
+	service := NewLoanService(mockRepo, mockCustomerService, logger)
 
 	ctx := context.Background()
 	loanID := int64(1)
@@ -99,7 +265,8 @@ func TestMakePayment(t *testing.T) {
 func TestGetLoan(t *testing.T) {
 	mockRepo := new(MockRepository)
 
-	service := NewLoanService(mockRepo, logger)
+	mockCustomerService := new(MockCustomerService)
+	service := NewLoanService(mockRepo, mockCustomerService, logger)
 
 	ctx := context.Background()
 	loanID := int64(1)
@@ -117,7 +284,8 @@ func TestGetLoan(t *testing.T) {
 func TestGetLoanSchedule(t *testing.T) {
 	mockRepo := new(MockRepository)
 
-	service := NewLoanService(mockRepo, logger)
+	mockCustomerService := new(MockCustomerService)
+	service := NewLoanService(mockRepo, mockCustomerService, logger)
 
 	ctx := context.Background()
 	loanID := int64(1)
