@@ -3,7 +3,8 @@
 [![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)](https://golang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-This is the API documentation for the Billing Engine service. It manages customers, loans, payments, and related billing operations.
+This is the documentation for the Billing Engine service. It manages customers, loans, payments, and related billing operations.
+Using REST as API Layers and batch job for managing delinquency status of customer and its loan
 
 ## Table of Contents
 
