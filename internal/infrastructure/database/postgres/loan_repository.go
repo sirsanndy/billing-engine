@@ -68,7 +68,7 @@ func (r *LoanRepository) RollbackTx(ctx context.Context, tx pgx.Tx) error {
 	return nil
 }
 
-func (r *LoanRepository) CreateLoan(ctx context.Context, newLoan *loan.Loan, schedule []loan.ScheduleEntry) (*loan.Loan, error) {
+func (r *LoanRepository) CreateLoan(ctx context.Context, customerID int64, newLoan *loan.Loan, schedule []loan.ScheduleEntry) (*loan.Loan, error) {
 	tx, err := r.BeginTx(ctx)
 	if err != nil {
 		return nil, err
@@ -124,7 +124,25 @@ func (r *LoanRepository) CreateLoan(ctx context.Context, newLoan *loan.Loan, sch
 	}
 	r.logger.InfoContext(ctx, "Loan schedule created in DB", "loan_id", createdLoan.ID, "num_entries", len(schedule))
 
+	r.logger.Info("Updating customer record to link loan")
+	updateCustomerSQL := `
+        UPDATE customers
+        SET loan_id = $1, updated_at = NOW()
+        WHERE id = $2 AND loan_id IS NULL`
+
+	cmdTag, err := tx.Exec(ctx, updateCustomerSQL, createdLoan.ID, customerID)
 	if err := r.CommitTx(ctx, tx); err != nil {
+		return nil, err
+	}
+
+	if err != nil {
+		r.logger.ErrorContext(ctx, "Failed to update customer with loan ID", slog.Any("error", err))
+		err = fmt.Errorf("%w: failed to link loan to customer: %w", apperrors.ErrDatabase, err)
+		return nil, err // Trigger rollback
+	}
+	if cmdTag.RowsAffected() == 0 {
+		r.logger.Error("Failed to link loan to customer: customer not found or already has a loan ID", slog.Int64("customerID", customerID))
+		err = fmt.Errorf("%w: failed to link loan, customer %d not found or already linked", apperrors.ErrConflict, customerID)
 		return nil, err
 	}
 
@@ -203,7 +221,7 @@ func (r *LoanRepository) GetUnpaidSchedules(ctx context.Context, loanID int64) (
 	query := `
         SELECT id, loan_id, week_number, due_date, due_amount, paid_amount, payment_date, status, created_at, updated_at
         FROM loan_schedule
-        WHERE loan_id = $1 AND status != 'PAID' -- PENDING or MISSED
+        WHERE loan_id = $1 AND status != 'PAID'
         ORDER BY due_date ASC`
 
 	rows, err := r.db.Query(ctx, query, loanID)
@@ -240,8 +258,9 @@ func (r *LoanRepository) GetLastTwoDueUnpaidSchedules(ctx context.Context, loanI
 	query := `
         SELECT id, loan_id, week_number, due_date, due_amount, paid_amount, payment_date, status, created_at, updated_at
         FROM loan_schedule
-        WHERE loan_id = $1 AND status != 'PAID' -- PENDING or MISSED
-        ORDER BY due_date DESC -- Order by due date DESC
+        WHERE loan_id = $1 AND status not in ('PAID')
+		AND due_date < NOW()
+        ORDER BY due_date DESC
         LIMIT 2`
 
 	rows, err := r.db.Query(ctx, query, loanID)
@@ -394,4 +413,36 @@ func translateDBError(err error, contextLogger *slog.Logger) error {
 
 	contextLogger.Error("Generic database error", "error", err)
 	return fmt.Errorf("%w: %w", apperrors.ErrDatabase, err)
+}
+
+func (r *LoanRepository) GetAllActiveLoanIDs(ctx context.Context) ([]int64, error) {
+	logCtx := r.logger.With(slog.String("operation", "GetAllActiveLoanIDs"))
+	logCtx.DebugContext(ctx, "Attempting to get all active loan IDs")
+
+	query := `SELECT id FROM loans WHERE status = $1 ORDER BY id`
+
+	rows, err := r.db.Query(ctx, query, loan.StatusActive)
+	if err != nil {
+		logCtx.ErrorContext(ctx, "Failed to query active loan IDs", slog.Any("error", err))
+		return nil, fmt.Errorf("%w: failed to query active loans: %w", apperrors.ErrDatabase, err)
+	}
+	defer rows.Close()
+
+	loanIDs := make([]int64, 0)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			logCtx.ErrorContext(ctx, "Failed to scan active loan ID row", slog.Any("error", err))
+			return nil, fmt.Errorf("%w: failed scanning active loan ID: %w", apperrors.ErrDatabase, err)
+		}
+		loanIDs = append(loanIDs, id)
+	}
+
+	if err = rows.Err(); err != nil {
+		logCtx.ErrorContext(ctx, "Error iterating active loan ID rows", slog.Any("error", err))
+		return nil, fmt.Errorf("%w: error iterating active loan IDs: %w", apperrors.ErrDatabase, err)
+	}
+
+	logCtx.DebugContext(ctx, "Finished getting active loan IDs", slog.Int("count", len(loanIDs)))
+	return loanIDs, nil
 }

@@ -7,7 +7,7 @@ import (
 )
 
 type Repository interface {
-	CreateLoan(ctx context.Context, loan *Loan, schedule []ScheduleEntry) (createdLoan *Loan, err error)
+	CreateLoan(ctx context.Context, customerID int64, loan *Loan, schedule []ScheduleEntry) (createdLoan *Loan, err error)
 
 	GetLoanByID(ctx context.Context, loanID int64) (*Loan, error)
 
@@ -32,4 +32,6 @@ type Repository interface {
 	CommitTx(ctx context.Context, tx pgx.Tx) error
 
 	RollbackTx(ctx context.Context, tx pgx.Tx) error
+
+	GetAllActiveLoanIDs(ctx context.Context) ([]int64, error)
 }

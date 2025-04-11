@@ -10,6 +10,7 @@ import (
 )
 
 type CreateLoanRequest struct {
+	CustomerID         int64   `json:"customerId"`
 	Principal          float64 `json:"principal"`
 	TermWeeks          int     `json:"termWeeks"`
 	AnnualInterestRate float64 `json:"annualInterestRate"`

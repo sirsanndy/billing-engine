@@ -1,6 +1,7 @@
 package loan
 
 import (
+	"billing-engine/internal/domain/customer"
 	"billing-engine/internal/infrastructure/monitoring"
 	"billing-engine/internal/pkg/apperrors"
 	"context"
@@ -16,7 +17,7 @@ import (
 type Money = float64
 
 type LoanService interface {
-	CreateLoan(ctx context.Context, principal Money, termWeeks int, annualInterestRate Money, startDate time.Time) (*Loan, error)
+	CreateLoan(ctx context.Context, customerID int64, principal Money, termWeeks int, annualInterestRate Money, startDate time.Time) (*Loan, error)
 
 	GetOutstanding(ctx context.Context, loanID int64) (Money, error)
 
@@ -30,16 +31,46 @@ type LoanService interface {
 }
 
 type loanServiceImpl struct {
-	repo   Repository
-	logger *slog.Logger
+	repo            Repository
+	customerService customer.CustomerService
+	logger          *slog.Logger
 }
 
-func NewLoanService(r Repository, logger *slog.Logger) LoanService {
-	return &loanServiceImpl{repo: r, logger: logger}
+func NewLoanService(r Repository, cs customer.CustomerService, logger *slog.Logger) LoanService {
+	return &loanServiceImpl{repo: r, customerService: cs, logger: logger}
 }
 
-func (s *loanServiceImpl) CreateLoan(ctx context.Context, principal Money, termWeeks int, annualInterestRate Money, startDate time.Time) (*Loan, error) {
+func (s *loanServiceImpl) CreateLoan(ctx context.Context, customerID int64, principal Money, termWeeks int, annualInterestRate Money, startDate time.Time) (*Loan, error) {
 	s.logger.Info("Creating new loan")
+	cust, err := s.customerService.GetCustomer(ctx, customerID)
+	if err != nil {
+		if errors.Is(err, customer.ErrNotFound) || errors.Is(err, apperrors.ErrNotFound) {
+			s.logger.Error("Customer not found", slog.Any("error", err))
+			return nil, fmt.Errorf("%w: customer %d not found", apperrors.ErrValidation, customerID)
+		}
+		s.logger.Error("Failed to get customer details from customer service", slog.Any("error", err))
+		return nil, fmt.Errorf("failed to verify customer status: %w", err)
+	}
+
+	if !cust.Active {
+		s.logger.Error("Attempted to create loan for inactive customer")
+		return nil, fmt.Errorf("%w: customer %d is not active", apperrors.ErrValidation, customerID)
+	}
+
+	if cust.LoanID != nil {
+		existingLoanID := *cust.LoanID
+		existingLoan, err := s.GetLoan(ctx, existingLoanID)
+		if err != nil {
+			s.logger.Error("Failed to get existing loan details", "error", err)
+			return nil, fmt.Errorf("failed to get existing loan details: %w", err)
+		}
+
+		if existingLoan.Status != StatusPaidOff {
+			s.logger.Error("Customer already has an assigned active loan")
+			return nil, fmt.Errorf("%w (LoanID: %d)", customer.ErrCustomerAlreadyHasLoan, existingLoanID)
+		}
+	}
+
 	loan, err := NewLoan(principal, termWeeks, annualInterestRate, startDate)
 	if err != nil {
 		s.logger.Error("Failed to create new loan object", "error", err)
@@ -52,11 +83,18 @@ func (s *loanServiceImpl) CreateLoan(ctx context.Context, principal Money, termW
 		return nil, fmt.Errorf("failed to generate schedule: %w", err)
 	}
 
-	createdLoan, err := s.repo.CreateLoan(ctx, loan, schedule)
+	createdLoan, err := s.repo.CreateLoan(ctx, customerID, loan, schedule)
 	if err != nil {
 		s.logger.Error("Failed to save loan and schedule", "error", err)
 		return nil, fmt.Errorf("%w: failed to save loan and schedule: %v", apperrors.ErrInternalServer, err)
 	}
+
+	s.customerService.AssignLoanToCustomer(ctx, customerID, createdLoan.ID)
+	if err != nil {
+		s.logger.Error("Failed to assign loan to customer", "error", err)
+		return nil, fmt.Errorf("failed to assign loan to customer: %w", err)
+	}
+	s.logger.Info("Loan created successfully", "loanID", createdLoan.ID, "customerID", customerID)
 
 	return createdLoan, nil
 }
@@ -172,8 +210,6 @@ func (s *loanServiceImpl) MakePayment(ctx context.Context, loanID int64, amount 
 			s.logger.Error("Failed to update loan status to paid off", "loanID", loanID, "error", err)
 			return fmt.Errorf("%w: could not update loan status to paid off: %v", apperrors.ErrInternalServer, err)
 		}
-	} else {
-
 	}
 
 	err = s.repo.CommitTx(ctx, tx)

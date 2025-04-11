@@ -109,7 +109,7 @@ func (h *LoanHandler) CreateLoan(w http.ResponseWriter, r *http.Request) {
 
 	startDate, _ := time.Parse(time.RFC3339[:10], req.StartDate)
 
-	createdLoan, err := h.service.CreateLoan(r.Context(), req.Principal, req.TermWeeks, req.AnnualInterestRate, startDate)
+	createdLoan, err := h.service.CreateLoan(r.Context(), req.CustomerID, req.Principal, req.TermWeeks, req.AnnualInterestRate, startDate)
 	if err != nil {
 		respondError(w, err)
 		return
@@ -230,9 +230,8 @@ func (h *LoanHandler) IsDelinquent(w http.ResponseWriter, r *http.Request) {
 // @Failure 400 {object} dto.ErrorResponse "Invalid loan ID, request payload, or validation error"
 // @Failure 404 {object} dto.ErrorResponse "Loan not found"
 // @Failure 500 {object} dto.ErrorResponse "Internal server error"
-// @Router /loans/{loanID}/payment [post]
+// @Router /loans/{loanID}/payments [post]
 // @Security BearerAuth
-
 func (h *LoanHandler) MakePayment(w http.ResponseWriter, r *http.Request) {
 	loanID, err := getLoanIDFromURL(r)
 	if err != nil {
