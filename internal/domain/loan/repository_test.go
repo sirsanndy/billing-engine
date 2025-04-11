@@ -19,8 +19,8 @@ type TxMock struct {
 
 var tx pgx.Tx = &TxMock{}
 
-func (m *MockRepository) CreateLoan(ctx context.Context, loan *Loan, schedule []ScheduleEntry) (*Loan, error) {
-	args := m.Called(ctx, loan, schedule)
+func (m *MockRepository) CreateLoan(ctx context.Context, customerId int64, loan *Loan, schedule []ScheduleEntry) (*Loan, error) {
+	args := m.Called(ctx, customerId, loan, schedule)
 	return args.Get(0).(*Loan), args.Error(1)
 }
 
@@ -84,16 +84,22 @@ func (m *MockRepository) RollbackTx(ctx context.Context, tx pgx.Tx) error {
 	return args.Error(0)
 }
 
+func (m *MockRepository) GetAllActiveLoanIDs(ctx context.Context) ([]int64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]int64), args.Error(1)
+}
+
 func TestRepository_CreateLoan(t *testing.T) {
 	mockRepo := new(MockRepository)
 	ctx := context.Background()
 	loan := &Loan{}
+	customerId := int64(1)
 	schedule := []ScheduleEntry{}
 	expectedLoan := &Loan{}
 
-	mockRepo.On("CreateLoan", ctx, loan, schedule).Return(expectedLoan, nil)
+	mockRepo.On("CreateLoan", ctx, customerId, loan, schedule).Return(expectedLoan, nil)
 
-	result, err := mockRepo.CreateLoan(ctx, loan, schedule)
+	result, err := mockRepo.CreateLoan(ctx, customerId, loan, schedule)
 	require.NoError(t, err)
 	require.Equal(t, expectedLoan, result)
 
