@@ -3,7 +3,9 @@ package main
 import (
 	_ "billing-engine/docs"
 	"billing-engine/internal/api"
+	"billing-engine/internal/batch"
 	"billing-engine/internal/config"
+	"billing-engine/internal/domain/customer"
 	"billing-engine/internal/domain/loan"
 	"billing-engine/internal/infrastructure/database/postgres"
 	"context"
@@ -18,6 +20,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/robfig/cron/v3"
 	"github.com/spf13/viper"
 )
 
@@ -47,10 +50,15 @@ func main() {
 	dbPool := initializeDatabase(cfg, logger)
 	defer closeDatabase(dbPool, logger)
 
-	loanService := initializeServices(dbPool, logger)
-	router := api.SetupRouter(loanService, cfg, logger)
+	loanService, customerService, loanRepo := initializeServices(dbPool, logger)
 
-	startServer(cfg, router, logger)
+	updateJob := batch.NewUpdateDelinquencyJob(loanRepo, loanService, customerService, logger)
+
+	cronScheduler := startBatchJobs(cfg, logger, updateJob)
+	router := api.SetupRouter(loanService, customerService, cfg, logger)
+
+	srv, serverErrors, shutdownChan := startServer(cfg, router, logger)
+	handleShutdown(srv, cronScheduler, shutdownChan, serverErrors, logger)
 }
 
 func initializeApp() (*config.Config, *slog.Logger) {
@@ -82,13 +90,15 @@ func closeDatabase(dbPool *pgxpool.Pool, logger *slog.Logger) {
 	dbPool.Close()
 }
 
-func initializeServices(dbPool *pgxpool.Pool, logger *slog.Logger) loan.LoanService {
+func initializeServices(dbPool *pgxpool.Pool, logger *slog.Logger) (loan.LoanService, customer.CustomerService, loan.Repository) {
 	logger.Info("Initializing application components...")
 	loanRepo := postgres.NewLoanRepository(dbPool, logger)
-	return loan.NewLoanService(loanRepo, logger)
+	customerRepo := postgres.NewCustomerRepository(dbPool, logger)
+	customerService := customer.NewCustomerService(customerRepo, logger)
+	return loan.NewLoanService(loanRepo, customerService, logger), customerService, loanRepo
 }
 
-func startServer(cfg *config.Config, router http.Handler, logger *slog.Logger) {
+func startServer(cfg *config.Config, router http.Handler, logger *slog.Logger) (*http.Server, <-chan error, <-chan os.Signal) {
 	logger.Info("Setting up HTTP server...", "port", cfg.Server.Port)
 	srv := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Server.Port),
@@ -114,11 +124,10 @@ func startServer(cfg *config.Config, router http.Handler, logger *slog.Logger) {
 			serverErrors <- nil
 		}
 	}()
-
-	handleShutdown(srv, shutdownChan, serverErrors, logger)
+	return srv, serverErrors, shutdownChan
 }
 
-func handleShutdown(srv *http.Server, shutdownChan <-chan os.Signal, serverErrors <-chan error, logger *slog.Logger) {
+func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, shutdownChan <-chan os.Signal, serverErrors <-chan error, logger *slog.Logger) {
 	select {
 	case sig := <-shutdownChan:
 		logger.Info("Shutdown signal received.", "signal", sig.String())
@@ -146,6 +155,48 @@ func handleShutdown(srv *http.Server, shutdownChan <-chan os.Signal, serverError
 
 	<-serverErrors
 	logger.Info("Application shut down complete.")
+}
+
+func startBatchJobs(cfg *config.Config, logger *slog.Logger, updateJob *batch.UpdateDelinquencyJob) *cron.Cron {
+	logger.Info("Initializing batch job scheduler...")
+	c := cron.New()
+
+	scheduleSpec := cfg.Batch.DelinquencyUpdateSchedule
+	if scheduleSpec == "" {
+		scheduleSpec = "0 2 * * *"
+		logger.Warn("Batch delinquency update schedule not configured, using default", "schedule", scheduleSpec)
+	}
+	jobTimeout := cfg.Batch.DelinquencyUpdateTimeout
+	if jobTimeout <= 0 {
+		jobTimeout = 1 * time.Hour
+	} else {
+		jobTimeout = jobTimeout * time.Second
+	}
+
+	jobID, err := c.AddJob(scheduleSpec, cron.FuncJob(func() {
+		jobLogger := logger.With("job_name", "DelinquencyUpdate")
+		jobLogger.Info("Cron triggered: Running delinquency update job.")
+
+		ctx, cancel := context.WithTimeout(context.Background(), jobTimeout)
+		defer cancel()
+
+		if runErr := updateJob.Run(ctx); runErr != nil {
+			jobLogger.Error("Delinquency update job finished with error", slog.Any("error", runErr))
+		} else {
+			jobLogger.Info("Delinquency update job finished successfully.")
+		}
+	}))
+
+	if err != nil {
+		logger.Error("Failed to schedule delinquency update job", "schedule", scheduleSpec, slog.Any("error", err))
+
+	} else {
+		logger.Info("Scheduled delinquency update job", "schedule", scheduleSpec, "job_id", jobID)
+	}
+
+	c.Start()
+	logger.Info("Cron scheduler started.")
+	return c
 }
 
 func setupLogger(cfg config.LoggerConfig) *slog.Logger {

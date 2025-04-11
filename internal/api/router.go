@@ -4,6 +4,7 @@ import (
 	"billing-engine/internal/api/handler"
 	mw "billing-engine/internal/api/middleware"
 	"billing-engine/internal/config"
+	"billing-engine/internal/domain/customer"
 	"billing-engine/internal/domain/loan"
 	"log/slog"
 	"net/http"
@@ -18,11 +19,12 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
-func SetupRouter(loanService loan.LoanService, cfg *config.Config, logger *slog.Logger) *chi.Mux {
+func SetupRouter(loanService loan.LoanService, customerService customer.CustomerService, cfg *config.Config, logger *slog.Logger) *chi.Mux {
 	router := chi.NewRouter()
 
 	setupMiddleware(router, cfg, logger)
 	setupMetricsEndpoint(router, cfg, logger)
+	setupCustomerRoutes(router, customerService, logger)
 	setupLoanRoutes(router, loanService, cfg, logger)
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -77,5 +79,25 @@ func setupLoanRoutes(router *chi.Mux, loanService loan.LoanService, cfg *config.
 		r.Get("/{loanID}/outstanding", loanHandler.GetOutstanding)
 		r.Get("/{loanID}/delinquent", loanHandler.IsDelinquent)
 		r.Post("/{loanID}/payments", loanHandler.MakePayment)
+	})
+}
+
+func setupCustomerRoutes(r chi.Router, svc customer.CustomerService, logger *slog.Logger) {
+	h := handler.NewCustomerHandler(svc, logger)
+
+	r.Route("/customers", func(r chi.Router) {
+		r.Post("/", h.CreateCustomer)
+		r.Get("/", h.ListCustomers)      // Handles ?active=true implicitly now
+		r.Get("/", h.FindCustomerByLoan) // Handles ?loan_id={id}
+
+		r.Route("/{customerID}", func(r chi.Router) {
+			// Middleware could be added here to parse/validate customerID once
+			r.Get("/", h.GetCustomer)
+			r.Delete("/", h.DeactivateCustomer) // DELETE method
+			r.Put("/address", h.UpdateCustomerAddress)
+			r.Put("/loan", h.AssignLoanToCustomer)
+			r.Put("/delinquency", h.UpdateDelinquency)
+			r.Put("/reactivate", h.ReactivateCustomer)
+		})
 	})
 }
