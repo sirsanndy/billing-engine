@@ -14,6 +14,7 @@ type Config struct {
 	Logger   LoggerConfig   `mapstructure:"logger"`
 	Metrics  MetricsConfig  `mapstructure:"metrics"`
 	Loan     LoanDefaults   `mapstructure:"loanDefaults"`
+	Batch    BatchConfig    `mapstructure:"BATCH"`
 }
 
 type ServerConfig struct {
@@ -55,6 +56,11 @@ type LoanDefaults struct {
 	InterestRate string `mapstructure:"interestRate"`
 }
 
+type BatchConfig struct {
+	DelinquencyUpdateSchedule string        `mapstructure:"delinquencySchedule"`
+	DelinquencyUpdateTimeout  time.Duration `mapstructure:"delinquencyTimeout"`
+}
+
 func LoadConfig(path string) (*Config, error) {
 	viper.AddConfigPath(path)
 	viper.SetConfigName("config")
@@ -79,6 +85,8 @@ func LoadConfig(path string) (*Config, error) {
 	viper.SetDefault("loanDefaults.termWeeks", 50)
 	viper.SetDefault("loanDefaults.interestRate", "0.10")
 	viper.SetDefault("server.auth.JWTSecret", "")
+	viper.SetDefault("batch.delinquencySchedule", "0 2 * * *")
+	viper.SetDefault("batch.delinquencyTimeout", 30)
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
