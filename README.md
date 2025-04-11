@@ -1,11 +1,7 @@
 # Billing Engine API
 
-[![Go Version](https://img.shields.io/badge/go-1.21+-blue.svg)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)](https://golang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-**Version:** 1.0
-**Host:** `localhost:8080` (Default)
-**Terms of Service:** [http://billing-engine.com/terms/](http://billing-engine.com/terms/)
-**Contact:** [API Support](http://billing-engine.com/support) (`support@billing-engine.com`)
 
 This is the API documentation for the Billing Engine service. It manages customers, loans, payments, and related billing operations.
 
