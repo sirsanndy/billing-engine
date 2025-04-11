@@ -16,12 +16,11 @@ This is the API documentation for the Billing Engine service. It manages custome
 3.  [Getting Started](#getting-started)
 4.  [Configuration](#configuration)
 5.  [Running the Application](#running-the-application)
-6.  [Batch Jobs](#batch-jobs)
-7.  [API Documentation](#api-documentation)
+6.  [API DocumentationBatch Jobs](#api-documentation)
     * [Authentication](#authentication)
     * [Endpoints](#endpoints)
-8.  [Testing](#testing)
-9. [License](#license)
+7.  [Tech Stack](#tech-stack)
+8.  [Project Structure](#project-structure)
 
 ## Features
 
@@ -58,7 +57,7 @@ This is the API documentation for the Billing Engine service. It manages custome
 
 4.  **Configure the application:** See the [Configuration](#configuration) section.
 
-5.  **Run database migrations:** See the [Database Migrations](#database-migrations) section.
+5.  **Run database scripts in migrations folder:**
 
 ## Configuration
 
@@ -90,7 +89,137 @@ go run ./cmd/server/main.go
 go build -o ./bin/billing-engine ./cmd/main.go
 ./bin/billing-engine
 ```
-# Tech Stack
+
+## API Documentation
+
+### Swagger UI
+
+Full interactive API documentation is available via Swagger UI when the server is running. Access it at:
+
+[`http://localhost:8080/swagger/index.html`](http://localhost:8080/swagger/index.html) (Adjust host/port if needed)
+
+*(Ensure `swag init` has been run to generate the `/docs` directory based on annotations in the handler code)*
+
+### Authentication
+
+The API uses two potential authentication methods as defined in the Swagger spec:
+
+* **Bearer Authentication (`BearerAuth`)**:
+    * Most endpoints require authentication using a JWT Bearer Token.
+    * Obtain a token by calling the `/auth/login` endpoint (or potentially `/auth/token` as per Swagger spec) with valid user credentials.
+    * Include the obtained token in the `Authorization` header for subsequent requests:
+        ```
+        Authorization: Bearer <your_jwt_token>
+        ```
+* **API Key Authentication (`ApiKeyAuth`)**:
+    * Requires an API key to be sent in the `X-API-KEY` header.
+    * *(Clarify which endpoints, if any, use this method instead of or in addition to BearerAuth).*
+
+### Endpoints
+
+Here is a summary of the available endpoints grouped by tags based on the Swagger definition. Refer to the Swagger UI for detailed request/response schemas and parameters.
+
+#### Authentication Endpoints
+
+* **`POST /auth/token`**
+    * **Summary:** Generate a JWT bearer token.
+    * **Description:** Generates a JWT based on a given secret (likely requires username).
+    * **Request Body:** `dto.TokenRequest` (`username`)
+    * **Success:** `200 OK` (Returns token)
+    * **Failure:** `400 Bad Request`, `500 Internal Server Error`
+    * *(Note: A `POST /auth/login` endpoint handling username/password authentication and returning `dto.LoginResponse` was implemented previously. Ensure Swagger reflects the actual authentication endpoint(s).)*
+
+#### Customers Endpoints
+
+* **`POST /customers`**
+    * **Summary:** Create a new customer.
+    * **Security:** BearerAuth
+    * **Request Body:** `dto.CreateCustomerRequest` (`name`, `address`)
+    * **Success:** `201 Created` (`dto.CustomerResponse`)
+    * **Failure:** `400 Bad Request`, `500 Internal Server Error`
+* **`GET /customers`**
+    * **Summary:** Find customer by loan ID.
+    * **Security:** BearerAuth
+    * **Query Params:** `loan_id` (required, integer >= 1)
+    * **Success:** `200 OK` (`dto.CustomerResponse`)
+    * **Failure:** `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`
+    * *(Note: This path might also support listing all customers, potentially with filters like `?active=true`. Check implementation/Swagger UI.)*
+* **`GET /customers/{customerID}`**
+    * **Summary:** Retrieve customer details.
+    * **Security:** BearerAuth
+    * **Path Params:** `customerID` (integer >= 1)
+    * **Success:** `200 OK` (`dto.CustomerResponse`)
+    * **Failure:** `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`
+* **`DELETE /customers/{customerID}`**
+    * **Summary:** Deactivate a customer.
+    * **Security:** BearerAuth
+    * **Path Params:** `customerID` (integer >= 1)
+    * **Success:** `204 No Content`
+    * **Failure:** `400 Bad Request`, `404 Not Found`, `409 Conflict` (active loan), `500 Internal Server Error`
+* **`PUT /customers/{customerID}/address`**
+    * **Summary:** Update customer address.
+    * **Security:** BearerAuth
+    * **Path Params:** `customerID` (integer >= 1)
+    * **Request Body:** `dto.UpdateCustomerAddressRequest` (`address`)
+    * **Success:** `204 No Content`
+    * **Failure:** `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`
+* **`PUT /customers/{customerID}/delinquency`**
+    * **Summary:** Update customer delinquency status.
+    * **Security:** BearerAuth
+    * **Path Params:** `customerID` (integer >= 1)
+    * **Request Body:** `dto.UpdateDelinquencyRequest` (`isDelinquent`)
+    * **Success:** `204 No Content`
+    * **Failure:** `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`
+* **`PUT /customers/{customerID}/loan`**
+    * **Summary:** Assign a loan to a customer.
+    * **Security:** BearerAuth
+    * **Path Params:** `customerID` (integer >= 1)
+    * **Request Body:** `dto.AssignLoanRequest` (`loanId`)
+    * **Success:** `204 No Content`
+    * **Failure:** `400 Bad Request`, `404 Not Found`, `409 Conflict`, `500 Internal Server Error`
+* **`PUT /customers/{customerID}/reactivate`**
+    * **Summary:** Reactivate a customer.
+    * **Security:** BearerAuth
+    * **Path Params:** `customerID` (integer >= 1)
+    * **Success:** `204 No Content`
+    * **Failure:** `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`
+
+#### Loans Endpoints
+
+* **`POST /loans`**
+    * **Summary:** Create a new loan.
+    * **Security:** BearerAuth
+    * **Request Body:** `dto.CreateLoanRequest` (`principal`, `termWeeks`, `annualInterestRate`, `startDate`, `customerId`)
+    * **Success:** `201 Created` (`dto.LoanResponse`)
+    * **Failure:** `400 Bad Request`, `409 Conflict` (customer checks), `500 Internal Server Error`
+* **`GET /loans/{loanID}`**
+    * **Summary:** Retrieve loan details.
+    * **Security:** BearerAuth
+    * **Path Params:** `loanID` (integer)
+    * **Query Params:** `include=schedule` (optional)
+    * **Success:** `200 OK` (`dto.LoanResponse`)
+    * **Failure:** `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`
+* **`GET /loans/{loanID}/delinquent`**
+    * **Summary:** Check loan delinquency status.
+    * **Security:** BearerAuth
+    * **Path Params:** `loanID` (integer)
+    * **Success:** `200 OK` (`dto.DelinquentResponse`)
+    * **Failure:** `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`
+* **`GET /loans/{loanID}/outstanding`**
+    * **Summary:** Retrieve outstanding loan amount.
+    * **Security:** BearerAuth
+    * **Path Params:** `loanID` (integer)
+    * **Success:** `200 OK` (`dto.OutstandingResponse`)
+    * **Failure:** `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`
+* **`POST /loans/{loanID}/payments`** (*Verify path, handler might use `/payment`*)
+    * **Summary:** Make a loan payment.
+    * **Security:** BearerAuth
+    * **Path Params:** `loanID` (integer)
+    * **Request Body:** `dto.MakePaymentRequest` (`amount`)
+    * **Success:** `200 OK`
+    * **Failure:** `400 Bad Request`, `404 Not Found`, `500 Internal Server Error`
+
+## Tech Stack
 - Go 1.24
 - Go-Chi as Web Framework
 - Swagger as API Doc
@@ -100,7 +229,7 @@ go build -o ./bin/billing-engine ./cmd/main.go
 - Cron as Cron Job to Update Delinquency Status of Loan
 - Unit Test
 
-# Project Structure
+## Project Structure
 ```
 billing-engine/
 ├── cmd/
