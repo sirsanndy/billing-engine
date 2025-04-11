@@ -92,7 +92,7 @@ go run ./cmd/server/main.go
 # OR build and run
 go build -o ./bin/billing-engine ./cmd/main.go
 ./bin/billing-engine
-
+```
 # Tech Stack
 - Go 1.24
 - Go-Chi as Web Framework
