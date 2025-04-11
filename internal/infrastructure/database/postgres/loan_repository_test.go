@@ -58,7 +58,7 @@ var logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 const pgxmockExpectationsNotMetMsg = "pgxmock expectations not met"
 
-func setup(t *testing.T) (context.Context, *LoanRepository, pgxmock.PgxPoolIface) {
+func setupLoanRepo(t *testing.T) (context.Context, *LoanRepository, pgxmock.PgxPoolIface) {
 	t.Helper()
 	mockPool, err := pgxmock.NewPool()
 	require.NoError(t, err, "Failed to create mock pool")
@@ -69,7 +69,7 @@ func setup(t *testing.T) (context.Context, *LoanRepository, pgxmock.PgxPoolIface
 }
 
 func TestLoanRepositoryBeginTxSuccess(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 
 	mockPool.ExpectBegin()
@@ -82,7 +82,7 @@ func TestLoanRepositoryBeginTxSuccess(t *testing.T) {
 }
 
 func TestLoanRepositoryBeginTxError(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 
 	dbErr := errors.New("db begin failed")
@@ -98,7 +98,7 @@ func TestLoanRepositoryBeginTxError(t *testing.T) {
 }
 
 func TestLoanRepositoryCommitTxSuccess(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	mockPool.ExpectBegin()
 	mockTx, err := mockPool.Begin(ctx)
@@ -113,7 +113,7 @@ func TestLoanRepositoryCommitTxSuccess(t *testing.T) {
 }
 
 func TestLoanRepositoryCommitTxError(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	mockPool.ExpectBegin()
 	mockTx, err := mockPool.Begin(ctx)
@@ -127,7 +127,7 @@ func TestLoanRepositoryCommitTxError(t *testing.T) {
 }
 
 func TestLoanRepositoryRollbackTxSuccess(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	mockPool.ExpectBegin()
 	mockTx, err := mockPool.Begin(ctx)
@@ -141,7 +141,7 @@ func TestLoanRepositoryRollbackTxSuccess(t *testing.T) {
 }
 
 func TestLoanRepositoryRollbackTxError(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	mockPool.ExpectBegin()
 	mockTx, err := mockPool.Begin(ctx)
@@ -158,7 +158,7 @@ func TestLoanRepositoryRollbackTxError(t *testing.T) {
 }
 
 func TestRollbackTxErrorTxClosed(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	mockPool.ExpectBegin()
 	mockTx, err := mockPool.Begin(ctx)
@@ -172,7 +172,7 @@ func TestRollbackTxErrorTxClosed(t *testing.T) {
 }
 
 func TestCreateLoanWithSchedule(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 
 	now := time.Now()
@@ -247,7 +247,7 @@ func TestCreateLoanWithSchedule(t *testing.T) {
 }
 
 func TestLoanRepositoryCreateLoanSuccessNoSchedule(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 
 	now := time.Now()
@@ -300,7 +300,7 @@ func TestLoanRepositoryCreateLoanSuccessNoSchedule(t *testing.T) {
 }
 
 func TestCreateLoanErrorLoanInsertFails(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 
 	newLoan := &loan.Loan{ /* ... minimal setup ... */ }
@@ -381,7 +381,7 @@ func TestLoanRepositoryGetLoanByIDSuccess(t *testing.T) {
 }
 
 func TestLoanRepository_GetLoanByID_NotFound(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(999)
 
@@ -403,7 +403,7 @@ func TestLoanRepository_GetLoanByID_NotFound(t *testing.T) {
 }
 
 func TestLoanRepository_GetLoanByID_DBError(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(1)
 	dbErr := errors.New("connection failure")
@@ -427,7 +427,7 @@ func TestLoanRepository_GetLoanByID_DBError(t *testing.T) {
 }
 
 func TestLoanRepository_GetScheduleByLoanID_Success(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 
 	loanID := int64(1)
@@ -459,7 +459,7 @@ func TestLoanRepository_GetScheduleByLoanID_Success(t *testing.T) {
 }
 
 func TestLoanRepository_GetScheduleByLoanID_Success_Empty(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(2)
 
@@ -483,7 +483,7 @@ func TestLoanRepository_GetScheduleByLoanID_Success_Empty(t *testing.T) {
 }
 
 func TestLoanRepository_GetScheduleByLoanID_DBError(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(1)
 	dbErr := errors.New("schedule query failed")
@@ -506,7 +506,7 @@ func TestLoanRepository_GetScheduleByLoanID_DBError(t *testing.T) {
 }
 
 func TestLoanRepository_GetUnpaidSchedules_Success(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 
 	loanID := int64(1)
@@ -538,7 +538,7 @@ func TestLoanRepository_GetUnpaidSchedules_Success(t *testing.T) {
 }
 
 func TestLoanRepository_GetLastTwoDueUnpaidSchedules_Success(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 
 	loanID := int64(1)
@@ -573,7 +573,7 @@ func TestLoanRepository_GetLastTwoDueUnpaidSchedules_Success(t *testing.T) {
 }
 
 func TestLoanRepository_FindOldestUnpaidEntryForUpdate_Success(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 
 	loanID := int64(1)
@@ -610,7 +610,7 @@ func TestLoanRepository_FindOldestUnpaidEntryForUpdate_Success(t *testing.T) {
 }
 
 func TestLoanRepository_FindOldestUnpaidEntryForUpdate_NotFound(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(1)
 
@@ -634,7 +634,7 @@ func TestLoanRepository_FindOldestUnpaidEntryForUpdate_NotFound(t *testing.T) {
 }
 
 func TestLoanRepository_UpdateScheduleEntryInTx_Success(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 
 	now := time.Now()
@@ -661,7 +661,7 @@ func TestLoanRepository_UpdateScheduleEntryInTx_Success(t *testing.T) {
 }
 
 func TestLoanRepository_UpdateScheduleEntryInTx_Error_DB(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	entryToUpdate := &loan.ScheduleEntry{ID: 1, LoanID: 10 /* ... */}
 	dbErr := errors.New("update failed")
@@ -683,7 +683,7 @@ func TestLoanRepository_UpdateScheduleEntryInTx_Error_DB(t *testing.T) {
 }
 
 func TestLoanRepository_UpdateScheduleEntryInTx_Error_RowsAffectedZero(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	entryToUpdate := &loan.ScheduleEntry{ID: 1, LoanID: 10 /* ... */}
 
@@ -704,7 +704,7 @@ func TestLoanRepository_UpdateScheduleEntryInTx_Error_RowsAffectedZero(t *testin
 }
 
 func TestLoanRepository_UpdateLoanStatusInTx_Success(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 
 	loanID := int64(10)
@@ -722,7 +722,7 @@ func TestLoanRepository_UpdateLoanStatusInTx_Success(t *testing.T) {
 }
 
 func TestLoanRepository_CheckIfAllPaymentsMadeInTx_True(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(10)
 
@@ -738,7 +738,7 @@ func TestLoanRepository_CheckIfAllPaymentsMadeInTx_True(t *testing.T) {
 }
 
 func TestLoanRepository_CheckIfAllPaymentsMadeInTx_False(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(10)
 
@@ -754,7 +754,7 @@ func TestLoanRepository_CheckIfAllPaymentsMadeInTx_False(t *testing.T) {
 }
 
 func TestLoanRepository_CheckIfAllPaymentsMadeInTx_DBError(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(10)
 	dbErr := errors.New("count query failed")
@@ -771,7 +771,7 @@ func TestLoanRepository_CheckIfAllPaymentsMadeInTx_DBError(t *testing.T) {
 }
 
 func TestLoanRepository_GetTotalOutstandingAmount_Success_Positive(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(1)
 	expectedAmount := 210.50
@@ -792,7 +792,7 @@ func TestLoanRepository_GetTotalOutstandingAmount_Success_Positive(t *testing.T)
 }
 
 func TestLoanRepository_GetTotalOutstandingAmount_Success_Zero(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(1)
 	expectedAmount := 0.00
@@ -812,7 +812,7 @@ func TestLoanRepository_GetTotalOutstandingAmount_Success_Zero(t *testing.T) {
 }
 
 func TestLoanRepository_GetTotalOutstandingAmount_Success_NoRowsIsNull(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(1)
 	expectedAmount := 0.00
@@ -832,7 +832,7 @@ func TestLoanRepository_GetTotalOutstandingAmount_Success_NoRowsIsNull(t *testin
 }
 
 func TestLoanRepository_GetTotalOutstandingAmount_Success_NegativeSumReturnsZero(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(1)
 	dbReturnedAmount := -50.25
@@ -854,7 +854,7 @@ func TestLoanRepository_GetTotalOutstandingAmount_Success_NegativeSumReturnsZero
 }
 
 func TestLoanRepository_GetTotalOutstandingAmount_DBError(t *testing.T) {
-	ctx, repo, mockPool := setup(t)
+	ctx, repo, mockPool := setupLoanRepo(t)
 	defer mockPool.Close()
 	loanID := int64(1)
 	dbErr := errors.New("sum query failed")
