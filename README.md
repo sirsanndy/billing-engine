@@ -99,7 +99,7 @@ Full interactive API documentation is available via Swagger UI when the server i
 
 ### Authentication
 
-The API uses two potential authentication methods as defined in the Swagger spec:
+The API uses one authentication methods as defined in the Swagger spec:
 
 * **Bearer Authentication (`BearerAuth`)**:
     * Most endpoints require authentication using a JWT Bearer Token.
