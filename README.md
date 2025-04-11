@@ -20,9 +20,8 @@ This is the API documentation for the Billing Engine service. It manages custome
 7.  [API Documentation](#api-documentation)
     * [Authentication](#authentication)
     * [Endpoints](#endpoints)
-8.  [Database Migrations](#database-migrations)
-9.  [Testing](#testing)
-10. [License](#license)
+8.  [Testing](#testing)
+9. [License](#license)
 
 ## Features
 
