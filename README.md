@@ -37,11 +37,9 @@ This is the API documentation for the Billing Engine service. It manages custome
 
 ## Prerequisites
 
-* **Go:** Version 1.21 or higher
+* **Go:** Version 1.24 or higher
 * **PostgreSQL:** A running instance (e.g., via Docker or local installation)
-* **Database Migration Tool:** Like [golang-migrate/migrate](https://github.com/golang-migrate/migrate) or [sql-migrate](https://github.com/rubenv/sql-migrate)
-* **Make** (Optional, if a Makefile is used for common tasks)
-* **Docker & Docker Compose** (Optional, for running PostgreSQL easily)
+* **Make**
 
 ## Getting Started
 
