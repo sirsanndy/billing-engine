@@ -19,6 +19,7 @@ require github.com/stretchr/testify v1.10.0
 require (
 	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgtype v1.14.4 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 )
 
 require (
