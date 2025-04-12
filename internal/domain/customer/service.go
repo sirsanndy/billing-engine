@@ -8,6 +8,12 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
+)
+
+const (
+	inputValidationPassed = "Input validation passed"
+	customerNotFound      = "Customer not found by repository"
 )
 
 type CustomerService interface {
@@ -61,6 +67,24 @@ func NewCustomerEventPayload(cust *Customer) event.CustomerEventPayload {
 	}
 }
 
+func (s *customerService) PublishCustomerUpdateEvent(ctx context.Context, customer *Customer) {
+	if customer == nil {
+		s.logger.ErrorContext(ctx, "Attempted to publish update event for nil customer")
+		return
+	}
+	event := event.CustomerUpdatedEvent{
+		Timestamp: time.Now(),
+		Payload:   NewCustomerEventPayload(customer),
+	}
+	s.logger.With(slog.Int64("customerID", customer.CustomerID))
+
+	if err := s.pub.PublishCustomerUpdated(ctx, event); err != nil {
+		s.logger.ErrorContext(ctx, "Failed to publish customer update event", slog.Any("error", err))
+	} else {
+		s.logger.InfoContext(ctx, "Successfully published customer update event")
+	}
+}
+
 func (s *customerService) CreateNewCustomer(ctx context.Context, name, address string) (*Customer, error) {
 	s.logger.InfoContext(ctx, "Attempting to create new customer")
 
@@ -77,7 +101,7 @@ func (s *customerService) CreateNewCustomer(ctx context.Context, name, address s
 	}
 
 	s.logger = s.logger.With(slog.String("validated_name", name), slog.String("validated_address", address))
-	s.logger.InfoContext(ctx, "Input validation passed")
+	s.logger.InfoContext(ctx, inputValidationPassed)
 
 	customer := &Customer{
 		Name:         name,
@@ -108,7 +132,7 @@ func (s *customerService) GetCustomer(ctx context.Context, customerID int64) (*C
 	customer, err := s.repo.FindByID(ctx, customerID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			s.logger.WarnContext(ctx, "Customer not found by repository")
+			s.logger.WarnContext(ctx, customerNotFound)
 
 			return nil, ErrNotFound
 		}
@@ -147,7 +171,7 @@ func (s *customerService) UpdateCustomerAddress(ctx context.Context, customerID 
 		return errors.New("new address cannot be empty")
 	}
 	s.logger = s.logger.With(slog.String("new_address", newAddress))
-	s.logger.InfoContext(ctx, "Input validation passed")
+	s.logger.InfoContext(ctx, inputValidationPassed)
 
 	s.logger.InfoContext(ctx, "Calling repository FindByID to get current customer data")
 	customer, err := s.repo.FindByID(ctx, customerID)
@@ -193,13 +217,13 @@ func (s *customerService) AssignLoanToCustomer(ctx context.Context, customerID i
 		s.logger.WarnContext(ctx, "Validation failed: invalid loan ID provided")
 		return errors.New("invalid loan ID provided")
 	}
-	s.logger.InfoContext(ctx, "Input validation passed")
+	s.logger.InfoContext(ctx, inputValidationPassed)
 
 	s.logger.InfoContext(ctx, "Calling repository FindByID")
 	customer, err := s.repo.FindByID(ctx, customerID)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			s.logger.WarnContext(ctx, "Customer not found by repository")
+			s.logger.WarnContext(ctx, customerNotFound)
 			return ErrNotFound
 		}
 		s.logger.ErrorContext(ctx, "Repository error finding customer", slog.Any("error", err))
@@ -255,7 +279,7 @@ func (s *customerService) UpdateDelinquency(ctx context.Context, customerID int6
 	err := s.repo.SetDelinquencyStatus(ctx, customerID, isDelinquent)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			s.logger.WarnContext(ctx, "Customer not found by repository")
+			s.logger.WarnContext(ctx, customerNotFound)
 			return ErrNotFound
 		}
 
@@ -275,7 +299,7 @@ func (s *customerService) DeactivateCustomer(ctx context.Context, customerID int
 	err := s.repo.SetActiveStatus(ctx, customerID, false)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			s.logger.WarnContext(ctx, "Customer not found by repository")
+			s.logger.WarnContext(ctx, customerNotFound)
 			return ErrNotFound
 		}
 		s.logger.ErrorContext(ctx, "Repository error deactivating customer", slog.Any("error", err))
@@ -294,7 +318,7 @@ func (s *customerService) ReactivateCustomer(ctx context.Context, customerID int
 	err := s.repo.SetActiveStatus(ctx, customerID, true)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			s.logger.WarnContext(ctx, "Customer not found by repository")
+			s.logger.WarnContext(ctx, customerNotFound)
 			return ErrNotFound
 		}
 		s.logger.ErrorContext(ctx, "Repository error reactivating customer", slog.Any("error", err))
