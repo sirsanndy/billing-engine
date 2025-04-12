@@ -2,8 +2,8 @@ package middleware
 
 import (
 	"billing-engine/internal/config"
-	"bytes"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -16,7 +16,7 @@ const (
 )
 
 func TestRateLimiterMiddleware(t *testing.T) {
-	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	cfg := config.RateLimitConfig{
 		Enabled: true,
 		RPS:     1,
@@ -101,7 +101,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 }
 
 // func TestCleanupLimiters(t *testing.T) {
-// 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
+// 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 // 	cfg := config.RateLimitConfig{
 // 		Enabled: true,
 // 		RPS:     1,
