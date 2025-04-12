@@ -13,6 +13,7 @@ import (
 const (
 	expectedStatus = "expected status %d, got %d"
 	expectedIP     = "expected IP %s, got %s"
+	remoteAddr     = "127.0.0.1:12345"
 )
 
 func TestRateLimiterMiddleware(t *testing.T) {
@@ -33,7 +34,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 		handler := middleware.Middleware(nextHandler)
 
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.RemoteAddr = "127.0.0.1:12345"
+		req.RemoteAddr = remoteAddr
 		rec := httptest.NewRecorder()
 
 		handler.ServeHTTP(rec, req)
@@ -51,7 +52,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 		handler := middleware.Middleware(nextHandler)
 
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.RemoteAddr = "127.0.0.1:12345"
+		req.RemoteAddr = remoteAddr
 
 		rec1 := httptest.NewRecorder()
 		handler.ServeHTTP(rec1, req)
@@ -92,7 +93,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 		}
 
 		req = httptest.NewRequest(http.MethodGet, "/", nil)
-		req.RemoteAddr = "127.0.0.1:12345"
+		req.RemoteAddr = remoteAddr
 		ip = middleware.extractIP(req)
 		if ip != "127.0.0.1" {
 			t.Errorf(expectedIP, "127.0.0.1", ip)
