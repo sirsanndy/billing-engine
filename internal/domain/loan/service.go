@@ -234,6 +234,17 @@ func (s *loanServiceImpl) GetLoan(ctx context.Context, loanID int64) (*Loan, err
 		s.logger.Error("Failed to get loan", "loanID", loanID, "error", err)
 		return nil, fmt.Errorf("%w: failed to get loan %d: %v", apperrors.ErrInternalServer, loanID, err)
 	}
+
+	schedule, err := s.GetLoanSchedule(ctx, loanID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.logger.Warn("Loan not found", "loanID", loanID)
+		} else {
+			s.logger.Error("Failed to get loan schedule", "loanID", loanID, "error", err)
+		}
+	}
+
+	loan.Schedule = schedule
 	return loan, nil
 }
 
