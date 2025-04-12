@@ -1,6 +1,7 @@
 package customer
 
 import (
+	"billing-engine/internal/event"
 	"context"
 	"errors"
 	"fmt"
@@ -40,6 +41,22 @@ func NewCustomerService(repo CustomerRepository, logger *slog.Logger) CustomerSe
 	return &customerService{
 		repo:   repo,
 		logger: logger.With(slog.String("component", "customerService")),
+	}
+}
+
+func NewCustomerEventPayload(cust *Customer) event.CustomerEventPayload {
+	if cust == nil {
+		return event.CustomerEventPayload{}
+	}
+	return event.CustomerEventPayload{
+		CustomerID:   cust.CustomerID,
+		Name:         cust.Name,
+		Address:      cust.Address,
+		IsDelinquent: cust.IsDelinquent,
+		Active:       cust.Active,
+		LoanID:       cust.LoanID,
+		CreateDate:   cust.CreateDate,
+		UpdatedAt:    cust.UpdatedAt,
 	}
 }
 
