@@ -32,11 +32,11 @@ var _ CustomerService = (*customerService)(nil)
 
 type customerService struct {
 	repo   CustomerRepository
-	pub    *event.EventPublisher
+	pub    event.EventPublisher
 	logger *slog.Logger
 }
 
-func NewCustomerService(repo CustomerRepository, eventPublisher *event.EventPublisher, logger *slog.Logger) CustomerService {
+func NewCustomerService(repo CustomerRepository, eventPublisher event.EventPublisher, logger *slog.Logger) CustomerService {
 	if repo == nil {
 		panic("customer repository cannot be nil")
 	}
@@ -46,7 +46,7 @@ func NewCustomerService(repo CustomerRepository, eventPublisher *event.EventPubl
 		logger.Warn("Warning: No logger provided to NewCustomerService, using default stderr handler")
 	}
 
-	if eventPublisher == nil || &eventPublisher == nil {
+	if eventPublisher == nil {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 		logger.Warn("Warning: No event publisher provided to NewCustomerService, using default event publisher")
 	}

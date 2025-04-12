@@ -7,6 +7,7 @@ import (
 	"billing-engine/internal/config"
 	"billing-engine/internal/domain/customer"
 	"billing-engine/internal/domain/loan"
+	"billing-engine/internal/event"
 	"billing-engine/internal/infrastructure/database/postgres"
 	"billing-engine/internal/infrastructure/logging"
 	"context"
@@ -46,14 +47,13 @@ func main() {
 
 	dbPool := initializeDatabase(cfg, logger)
 	defer closeDatabase(dbPool, logger)
-
-	loanService, customerService, loanRepo := initializeServices(dbPool, logger)
+	rabbitMQConn, _ := setupRabbitMQ(cfg, logger)
+	loanService, customerService, loanRepo := initializeServices(rabbitMQConn, dbPool, logger)
 
 	updateJob := batch.NewUpdateDelinquencyJob(loanRepo, loanService, customerService, logger)
 
 	cronScheduler := startBatchJobs(cfg, logger, updateJob)
 	router := api.SetupRouter(loanService, customerService, cfg, logger)
-	rabbitMQConn, _ := setupRabbitMQ(cfg, logger)
 
 	srv, serverErrors, shutdownChan := startServer(cfg, router, logger)
 	handleShutdown(srv, cronScheduler, rabbitMQConn, shutdownChan, serverErrors, logger)
@@ -88,11 +88,12 @@ func closeDatabase(dbPool *pgxpool.Pool, logger *slog.Logger) {
 	dbPool.Close()
 }
 
-func initializeServices(dbPool *pgxpool.Pool, logger *slog.Logger) (loan.LoanService, customer.CustomerService, loan.Repository) {
+func initializeServices(rabbitConn *amqp.Connection, dbPool *pgxpool.Pool, logger *slog.Logger) (loan.LoanService, customer.CustomerService, loan.Repository) {
 	logger.Info("Initializing application components...")
 	loanRepo := postgres.NewLoanRepository(dbPool, logger)
 	customerRepo := postgres.NewCustomerRepository(dbPool, logger)
-	customerService := customer.NewCustomerService(customerRepo, logger)
+	eventPublisher, _ := event.NewRabbitMQEventPublisher(rabbitConn, "billing-engine", logger)
+	customerService := customer.NewCustomerService(customerRepo, eventPublisher, logger)
 	return loan.NewLoanService(loanRepo, customerService, logger), customerService, loanRepo
 }
 
