@@ -26,6 +26,7 @@ var _ CustomerService = (*customerService)(nil)
 
 type customerService struct {
 	repo   CustomerRepository
+	pub    event.EventPublisher
 	logger *slog.Logger
 }
 
