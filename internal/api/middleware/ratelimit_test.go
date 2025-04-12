@@ -10,6 +10,10 @@ import (
 	"testing"
 )
 
+const (
+	expectedStatus = "expected status %d, got %d"
+)
+
 func TestRateLimiterMiddleware(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	cfg := config.RateLimitConfig{
@@ -34,7 +38,7 @@ func TestRateLimiterMiddleware(t *testing.T) {
 		handler.ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusOK {
-			t.Errorf("expected status %d, got %d", http.StatusOK, rec.Code)
+			t.Errorf(expectedStatus, http.StatusOK, rec.Code)
 		}
 	})
 
@@ -51,13 +55,13 @@ func TestRateLimiterMiddleware(t *testing.T) {
 		rec1 := httptest.NewRecorder()
 		handler.ServeHTTP(rec1, req)
 		if rec1.Code != http.StatusOK {
-			t.Errorf("expected status %d, got %d", http.StatusOK, rec1.Code)
+			t.Errorf(expectedStatus, http.StatusOK, rec1.Code)
 		}
 
 		rec2 := httptest.NewRecorder()
 		handler.ServeHTTP(rec2, req)
 		if rec2.Code != http.StatusTooManyRequests {
-			t.Errorf("expected status %d, got %d", http.StatusTooManyRequests, rec2.Code)
+			t.Errorf(expectedStatus, http.StatusTooManyRequests, rec2.Code)
 		}
 
 		var response map[string]interface{}
