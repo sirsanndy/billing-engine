@@ -34,7 +34,7 @@ func TestNewCustomer(t *testing.T) {
 	assert.Equal(t, int64(0), cust.CustomerID, "CustomerID should be initialized to 0")
 }
 
-func TestCustomer_AssignLoan(t *testing.T) {
+func TestCustomerAssignLoan(t *testing.T) {
 	cust := customer.NewCustomer("Bob The Builder", "Fixit Town")
 	initialUpdateTime := cust.UpdatedAt
 	loanID := int64(101)
@@ -50,7 +50,7 @@ func TestCustomer_AssignLoan(t *testing.T) {
 	assert.True(t, cust.UpdatedAt.After(initialUpdateTime), "UpdatedAt should be updated after assigning loan")
 }
 
-func TestCustomer_SetDelinquencyStatus(t *testing.T) {
+func TestCustomerSetDelinquencyStatus(t *testing.T) {
 	t.Run("Set delinquent from false to true", func(t *testing.T) {
 		cust := customer.NewCustomer("Charlie Chaplin", "Hollywood")
 		initialUpdateTime := cust.UpdatedAt
@@ -104,7 +104,7 @@ func TestCustomer_SetDelinquencyStatus(t *testing.T) {
 	})
 }
 
-func TestCustomer_Deactivate(t *testing.T) {
+func TestCustomerDeactivate(t *testing.T) {
 	t.Run("Deactivate an active customer", func(t *testing.T) {
 		cust := customer.NewCustomer("Gandalf Grey", "Middle Earth")
 		initialUpdateTime := cust.UpdatedAt
