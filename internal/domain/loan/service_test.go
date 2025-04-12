@@ -272,6 +272,7 @@ func TestGetLoan(t *testing.T) {
 	expectedLoan := &Loan{}
 
 	mockRepo.On("GetLoanByID", ctx, loanID).Return(expectedLoan, nil)
+	mockRepo.On("GetScheduleByLoanID", ctx, loanID).Return([]ScheduleEntry{}, nil)
 
 	result, err := service.GetLoan(ctx, loanID)
 
