@@ -15,6 +15,7 @@ type Config struct {
 	Metrics  MetricsConfig  `mapstructure:"metrics"`
 	Loan     LoanDefaults   `mapstructure:"loanDefaults"`
 	Batch    BatchConfig    `mapstructure:"BATCH"`
+	RabbitMQ RabbitMQConfig `mapstructure:"rabbitmq"`
 }
 
 type ServerConfig struct {
@@ -59,6 +60,13 @@ type LoanDefaults struct {
 type BatchConfig struct {
 	DelinquencyUpdateSchedule string        `mapstructure:"delinquencySchedule"`
 	DelinquencyUpdateTimeout  time.Duration `mapstructure:"delinquencyTimeout"`
+}
+
+type RabbitMQConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
 }
 
 func LoadConfig(path string) (*Config, error) {
