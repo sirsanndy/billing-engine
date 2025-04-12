@@ -8,6 +8,7 @@ import (
 	"billing-engine/internal/domain/customer"
 	"billing-engine/internal/domain/loan"
 	"billing-engine/internal/infrastructure/database/postgres"
+	"billing-engine/internal/infrastructure/logging"
 	"context"
 	"errors"
 	"fmt"
@@ -15,7 +16,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -195,28 +195,5 @@ func startBatchJobs(cfg *config.Config, logger *slog.Logger, updateJob *batch.Up
 }
 
 func setupLogger(cfg config.LoggerConfig) *slog.Logger {
-	var level slog.Level
-	switch strings.ToLower(cfg.Level) {
-	case "debug":
-		level = slog.LevelDebug
-	case "info":
-		level = slog.LevelInfo
-	case "warn":
-		level = slog.LevelWarn
-	case "error":
-		level = slog.LevelError
-	default:
-		level = slog.LevelInfo
-	}
-
-	opts := &slog.HandlerOptions{Level: level}
-	var handler slog.Handler
-	switch strings.ToLower(cfg.Encoding) {
-	case "json":
-		handler = slog.NewJSONHandler(os.Stdout, opts)
-	default:
-		handler = slog.NewTextHandler(os.Stdout, opts)
-	}
-
-	return slog.New(handler)
+	return logging.NewLogger(cfg)
 }
