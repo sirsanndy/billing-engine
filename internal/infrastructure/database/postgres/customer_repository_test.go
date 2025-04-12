@@ -11,22 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// type CustomerRepository interface {
-// 	Save(ctx context.Context, customer *Customer) error
-
-// 	FindByID(ctx context.Context, customerID int64) (*Customer, error)
-
-// 	FindByLoanID(ctx context.Context, loanID int64) (*Customer, error)
-
-// 	FindAll(ctx context.Context, activeOnly bool) ([]*Customer, error)
-
-// 	Delete(ctx context.Context, customerID int64) error
-
-// 	SetDelinquencyStatus(ctx context.Context, customerID int64, isDelinquent bool) error
-
-// 	SetActiveStatus(ctx context.Context, customerID int64, isActive bool) error
-// }
-
 var loanID int64 = int64(123)
 
 var customerTest *customer.Customer = &customer.Customer{
@@ -221,5 +205,127 @@ func TestFindAllThenGetAllCustomerExpectNoCustomer(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(customerResult))
 	assert.Equal(t, customerTest.CustomerID, customerResult[0].CustomerID)
+	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
+}
+
+func TestSetDelinquencyStatusWhenSuccess(t *testing.T) {
+	ctx, repo, mockPool := setupCustomerRepo(t)
+	defer mockPool.Close()
+
+	query := `
+	UPDATE customers
+	SET is_delinquent = $1,
+		updated_at = NOW()
+	WHERE id = $2`
+
+	mockPool.ExpectExec(regexp.QuoteMeta(query)).WithArgs(
+		customerTest.IsDelinquent,
+		customerTest.CustomerID,
+	).WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+	err := repo.SetDelinquencyStatus(ctx, customerTest.CustomerID, customerTest.IsDelinquent)
+	assert.NoError(t, err)
+	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
+}
+func TestSetDelinquencyStatusWhenError(t *testing.T) {
+	ctx, repo, mockPool := setupCustomerRepo(t)
+	defer mockPool.Close()
+
+	query := `
+	UPDATE customers
+	SET is_delinquent = $1,
+		updated_at = NOW()
+	WHERE id = $2`
+
+	mockPool.ExpectExec(regexp.QuoteMeta(query)).WithArgs(
+		customerTest.IsDelinquent,
+		customerTest.CustomerID,
+	).WillReturnError(pgx.ErrNoRows)
+
+	err := repo.SetDelinquencyStatus(ctx, customerTest.CustomerID, customerTest.IsDelinquent)
+	assert.Error(t, err)
+	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
+}
+func TestSetActiveStatusWhenSuccess(t *testing.T) {
+	ctx, repo, mockPool := setupCustomerRepo(t)
+	defer mockPool.Close()
+
+	query := `
+	UPDATE customers
+	SET active = $1,
+		updated_at = NOW()
+	WHERE id = $2`
+
+	mockPool.ExpectExec(regexp.QuoteMeta(query)).WithArgs(
+		customerTest.Active,
+		customerTest.CustomerID,
+	).WillReturnResult(pgxmock.NewResult("UPDATE", 1))
+
+	err := repo.SetActiveStatus(ctx, customerTest.CustomerID, customerTest.Active)
+	assert.NoError(t, err)
+	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
+}
+func TestSetActiveStatusWhenError(t *testing.T) {
+	ctx, repo, mockPool := setupCustomerRepo(t)
+	defer mockPool.Close()
+
+	query := `
+	UPDATE customers
+	SET active = $1,
+		updated_at = NOW()
+	WHERE id = $2`
+
+	mockPool.ExpectExec(regexp.QuoteMeta(query)).WithArgs(
+		customerTest.Active,
+		customerTest.CustomerID,
+	).WillReturnError(pgx.ErrNoRows)
+
+	err := repo.SetActiveStatus(ctx, customerTest.CustomerID, customerTest.Active)
+	assert.Error(t, err)
+	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
+}
+
+func TestDeleteCustomerWhenSuccess(t *testing.T) {
+	ctx, repo, mockPool := setupCustomerRepo(t)
+	defer mockPool.Close()
+
+	query := `
+	DELETE FROM customers
+	WHERE id = $1`
+
+	mockPool.ExpectExec(regexp.QuoteMeta(query)).WithArgs(customerTest.CustomerID).WillReturnResult(pgxmock.NewResult("DELETE", 1))
+
+	err := repo.Delete(ctx, customerTest.CustomerID)
+	assert.NoError(t, err)
+	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
+}
+
+func TestDeleteCustomerWhenError(t *testing.T) {
+	ctx, repo, mockPool := setupCustomerRepo(t)
+	defer mockPool.Close()
+
+	query := `
+	DELETE FROM customers
+	WHERE id = $1`
+
+	mockPool.ExpectExec(regexp.QuoteMeta(query)).WithArgs(customerTest.CustomerID).WillReturnError(pgx.ErrNoRows)
+
+	err := repo.Delete(ctx, customerTest.CustomerID)
+	assert.Error(t, err)
+	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
+}
+
+func TestDeleteCustomerWhenNoRowsAffected(t *testing.T) {
+	ctx, repo, mockPool := setupCustomerRepo(t)
+	defer mockPool.Close()
+
+	query := `
+	DELETE FROM customers
+	WHERE id = $1`
+
+	mockPool.ExpectExec(regexp.QuoteMeta(query)).WithArgs(customerTest.CustomerID).WillReturnResult(pgxmock.NewResult("DELETE", 0))
+
+	err := repo.Delete(ctx, customerTest.CustomerID)
+	assert.Error(t, err)
 	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
 }
