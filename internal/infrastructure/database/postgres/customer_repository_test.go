@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/pashagolub/pgxmock/v4"
 	"github.com/stretchr/testify/assert"
 )
@@ -122,5 +123,56 @@ func TestSaveNonExistingCustomerWhenSuccess(t *testing.T) {
 
 	err := repo.Save(ctx, customerTest)
 	assert.NoError(t, err)
+	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
+}
+
+func TestFindCustomerByIDReturnOne(t *testing.T) {
+	ctx, repo, mockPool := setupCustomerRepo(t)
+	defer mockPool.Close()
+
+	query := `
+	SELECT id, name, address, is_delinquent, active, loan_id, created_at, updated_at
+	FROM customers
+	WHERE id = $1`
+
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(customerTest.CustomerID).WillReturnRows(pgxmock.NewRows([]string{"id", "name", "address", "is_delinquent", "active", "loan_id", "created_at", "updated_at"}).
+		AddRow(customerTest.CustomerID, customerTest.Name, customerTest.Address, customerTest.IsDelinquent, customerTest.Active, customerTest.LoanID, customerTest.CreateDate, customerTest.UpdatedAt))
+
+	customerResult, err := repo.FindByID(ctx, customerTest.CustomerID)
+	assert.NoError(t, err)
+	assert.Equal(t, customerTest.CustomerID, customerResult.CustomerID)
+	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
+}
+
+func TestFindCustomerByIDReturnNone(t *testing.T) {
+	ctx, repo, mockPool := setupCustomerRepo(t)
+	defer mockPool.Close()
+
+	query := `
+	SELECT id, name, address, is_delinquent, active, loan_id, created_at, updated_at
+	FROM customers
+	WHERE id = $1`
+
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(customerTest.CustomerID).WillReturnError(pgx.ErrNoRows)
+
+	customerResult, err := repo.FindByID(ctx, customerTest.CustomerID)
+	assert.Error(t, err)
+	assert.Nil(t, customerResult)
+	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
+}
+
+func TestFindCustomerByLoanIDReturnOne(t *testing.T) {
+	ctx, repo, mockPool := setupCustomerRepo(t)
+	defer mockPool.Close()
+	query := `
+	SELECT id, name, address, is_delinquent, active, loan_id, created_at, updated_at
+	FROM customers
+	WHERE loan_id = $1`
+
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).WithArgs(customerTest.LoanID).WillReturnRows(pgxmock.NewRows([]string{"id", "name", "address", "is_delinquent", "active", "loan_id", "created_at", "updated_at"}).
+		AddRow(customerTest.CustomerID, customerTest.Name, customerTest.Address, customerTest.IsDelinquent, customerTest.Active, customerTest.LoanID, customerTest.CreateDate, customerTest.UpdatedAt))
+	customerResult, err := repo.FindByLoanID(ctx, loanID)
+	assert.NoError(t, err)
+	assert.Equal(t, customerTest.CustomerID, customerResult.CustomerID)
 	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
 }

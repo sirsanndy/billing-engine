@@ -218,7 +218,7 @@ func (r *CustomerRepository) FindByLoanID(ctx context.Context, loanID int64) (*c
         WHERE loan_id = $1`
 
 	var cust customer.Customer
-	err := r.db.QueryRow(ctx, query, loanID).Scan(
+	err := r.db.QueryRow(ctx, query, &loanID).Scan(
 		&cust.CustomerID,
 		&cust.Name,
 		&cust.Address,
