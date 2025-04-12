@@ -41,7 +41,6 @@ func (_m *MockCustomerService) CreateNewCustomer(ctx context.Context, name strin
 	return r0, r1
 }
 
-// GetCustomer provides a mock function with given fields: ctx, customerID
 func (_m *MockCustomerService) GetCustomer(ctx context.Context, customerID int64) (*customer.Customer, error) {
 	ret := _m.Called(ctx, customerID)
 
