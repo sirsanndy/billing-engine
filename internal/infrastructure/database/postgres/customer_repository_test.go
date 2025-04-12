@@ -199,3 +199,27 @@ func TestFindAllThenGetAllCustomer(t *testing.T) {
 	assert.Equal(t, customerTest.CustomerID, customerResult[0].CustomerID)
 	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
 }
+
+func TestFindAllThenGetAllCustomerExpectNoCustomer(t *testing.T) {
+	ctx, repo, mockPool := setupCustomerRepo(t)
+	defer mockPool.Close()
+
+	query := `
+	SELECT id, name, address, is_delinquent, active, loan_id, created_at, updated_at
+	FROM customers`
+	args := []any{}
+	query += " ORDER BY id ASC"
+
+	customerTest.Active = false
+
+	mockPool.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(args...).
+		WillReturnRows(pgxmock.NewRows([]string{"id", "name", "address", "is_delinquent", "active", "loan_id", "created_at", "updated_at"}).
+			AddRow(customerTest.CustomerID, customerTest.Name, customerTest.Address, customerTest.IsDelinquent, customerTest.Active, customerTest.LoanID, customerTest.CreateDate, customerTest.UpdatedAt))
+
+	customerResult, err := repo.FindAll(ctx, false)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(customerResult))
+	assert.Equal(t, customerTest.CustomerID, customerResult[0].CustomerID)
+	assert.NoError(t, mockPool.ExpectationsWereMet(), pgxmockExpectationsNotMetMsg)
+}
