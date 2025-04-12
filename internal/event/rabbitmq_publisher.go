@@ -16,6 +16,18 @@ type RabbitMQEventPublisher struct {
 	logger       *slog.Logger
 }
 
+type EventPublisher interface {
+	PublishCustomerDelinquencyChanged(ctx context.Context, event CustomerDelinquencyChangedEvent) error
+}
+
+type CustomerDelinquencyChangedEvent struct {
+	CustomerID int64     `json:"customerId"`
+	LoanID     *int64    `json:"loanId,omitempty"`
+	NewStatus  bool      `json:"newStatus"`
+	OldStatus  bool      `json:"oldStatus"`
+	Timestamp  time.Time `json:"timestamp"`
+}
+
 func NewRabbitMQEventPublisher(conn *amqp.Connection, exchangeName string, logger *slog.Logger) (EventPublisher, error) {
 	if conn == nil {
 		return nil, fmt.Errorf("RabbitMQ connection cannot be nil")
@@ -103,17 +115,3 @@ func (p *RabbitMQEventPublisher) PublishCustomerDelinquencyChanged(ctx context.C
 	logCtx.InfoContext(ctx, "Successfully published message", "routingKey", routingKey)
 	return nil
 }
-
-/*
-type EventPublisher interface {
-	PublishCustomerDelinquencyChanged(ctx context.Context, event CustomerDelinquencyChangedEvent) error
-}
-
-type CustomerDelinquencyChangedEvent struct {
-	CustomerID int64     `json:"customerId"`
-	LoanID     *int64    `json:"loanId,omitempty"`
-	NewStatus  bool      `json:"newStatus"`
-	OldStatus  bool      `json:"oldStatus"`
-	Timestamp  time.Time `json:"timestamp"`
-}
-*/
