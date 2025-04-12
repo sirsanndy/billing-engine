@@ -215,6 +215,9 @@ func (s *customerService) UpdateCustomerAddress(ctx context.Context, customerID 
 		return fmt.Errorf("failed to save updated address for customer %d: %w", customerID, err)
 	}
 
+	s.logger.InfoContext(ctx, "Successfully updated customer address in repository, publishing update event.")
+	s.PublishCustomerUpdateEvent(ctx, customer)
+
 	s.logger.InfoContext(ctx, "Successfully updated customer address")
 	return nil
 }
@@ -278,6 +281,9 @@ func (s *customerService) AssignLoanToCustomer(ctx context.Context, customerID i
 		return fmt.Errorf("failed to save loan assignment for customer %d: %w", customerID, err)
 	}
 
+	s.logger.InfoContext(ctx, "Successfully assign loan to customer in repository, publishing update event.")
+	s.PublishCustomerUpdateEvent(ctx, customer)
+
 	s.logger.InfoContext(ctx, "Successfully assigned loan to customer")
 	return nil
 }
@@ -296,7 +302,13 @@ func (s *customerService) UpdateDelinquency(ctx context.Context, customerID int6
 		s.logger.ErrorContext(ctx, "Repository error updating delinquency status", slog.Any("error", err))
 		return fmt.Errorf("failed to update delinquency for customer %d: %w", customerID, err)
 	}
-
+	updatedCustomer, fetchErr := s.repo.FindByID(ctx, customerID)
+	s.logger.InfoContext(ctx, "Successfully update delinquency status to customer in repository, publishing update event.")
+	if fetchErr != nil {
+		s.logger.ErrorContext(ctx, "Successfully updated status, but FAILED to re-fetch customer for event publishing", slog.Any("error", fetchErr))
+	} else {
+		s.PublishCustomerUpdateEvent(ctx, updatedCustomer)
+	}
 	s.logger.InfoContext(ctx, "Successfully updated customer delinquency status")
 	return nil
 }
@@ -316,6 +328,13 @@ func (s *customerService) DeactivateCustomer(ctx context.Context, customerID int
 		return fmt.Errorf("failed to deactivate customer %d: %w", customerID, err)
 	}
 
+	s.logger.InfoContext(ctx, "Successfully deactivate customer in repository, publishing update event.")
+	deactivateCustomer, fetchErr := s.repo.FindByID(ctx, customerID)
+	if fetchErr != nil {
+		s.logger.ErrorContext(ctx, "Successfully updated status, but FAILED to re-fetch customer for event publishing", slog.Any("error", fetchErr))
+	} else {
+		s.PublishCustomerUpdateEvent(ctx, deactivateCustomer)
+	}
 	s.logger.InfoContext(ctx, "Successfully deactivated customer")
 	return nil
 }
@@ -333,6 +352,14 @@ func (s *customerService) ReactivateCustomer(ctx context.Context, customerID int
 		}
 		s.logger.ErrorContext(ctx, "Repository error reactivating customer", slog.Any("error", err))
 		return fmt.Errorf("failed to reactivate customer %d: %w", customerID, err)
+	}
+
+	s.logger.InfoContext(ctx, "Successfully reactivate customer in repository, publishing update event.")
+	reactivateCustomer, fetchErr := s.repo.FindByID(ctx, customerID)
+	if fetchErr != nil {
+		s.logger.ErrorContext(ctx, "Successfully updated status, but FAILED to re-fetch customer for event publishing", slog.Any("error", fetchErr))
+	} else {
+		s.PublishCustomerUpdateEvent(ctx, reactivateCustomer)
 	}
 
 	s.logger.InfoContext(ctx, "Successfully reactivated customer")
