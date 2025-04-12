@@ -87,13 +87,12 @@ func setupCustomerRoutes(r chi.Router, svc customer.CustomerService, logger *slo
 
 	r.Route("/customers", func(r chi.Router) {
 		r.Post("/", h.CreateCustomer)
-		r.Get("/", h.ListCustomers)      // Handles ?active=true implicitly now
-		r.Get("/", h.FindCustomerByLoan) // Handles ?loan_id={id}
+		r.Get("/", h.ListCustomers)
+		r.Get("/", h.FindCustomerByLoan)
 
 		r.Route("/{customerID}", func(r chi.Router) {
-			// Middleware could be added here to parse/validate customerID once
 			r.Get("/", h.GetCustomer)
-			r.Delete("/", h.DeactivateCustomer) // DELETE method
+			r.Delete("/", h.DeactivateCustomer)
 			r.Put("/address", h.UpdateCustomerAddress)
 			r.Put("/loan", h.AssignLoanToCustomer)
 			r.Put("/delinquency", h.UpdateDelinquency)

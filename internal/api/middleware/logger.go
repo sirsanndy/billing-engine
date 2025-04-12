@@ -23,7 +23,7 @@ func StructuredLogger(logger *slog.Logger) func(next http.Handler) http.Handler 
 					"status", ww.Status(),
 					"latency_ms", float64(time.Since(t1).Nanoseconds())/1000000.0,
 					"bytes_written", ww.BytesWritten(),
-					"request_id", middleware.GetReqID(r.Context()), // Assumes middleware.RequestID is used
+					"request_id", middleware.GetReqID(r.Context()),
 				)
 			}()
 			next.ServeHTTP(ww, r)
