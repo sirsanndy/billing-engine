@@ -123,33 +123,62 @@ func startServer(cfg *config.Config, router http.Handler, logger *slog.Logger) (
 }
 
 func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, shutdownChan <-chan os.Signal, serverErrors <-chan error, logger *slog.Logger) {
+	logger.Info("Shutdown handler started. Waiting for signal or server error...")
+
+	var triggerReason string
 	select {
 	case sig := <-shutdownChan:
+		triggerReason = "signal: " + sig.String()
 		logger.Info("Shutdown signal received.", "signal", sig.String())
 	case err := <-serverErrors:
-		if err != nil {
-			logger.Error("Server failed to start or exited unexpectedly", "error", err)
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("Server exited unexpectedly before signal", "error", err)
 			os.Exit(1)
 		}
-		logger.Info("Server goroutine finished.")
-		return
+		triggerReason = "server exited"
+		logger.Info("Server goroutine finished before signal.", "error", err)
 	}
 
-	logger.Info("Starting graceful shutdown...")
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	logger.Info("Starting graceful shutdown...", "trigger", triggerReason)
+
+	logger.Info("Stopping cron scheduler...")
+	cronCtx := cronScheduler.Stop()
+	select {
+	case <-cronCtx.Done():
+		logger.Info("Cron scheduler stopped gracefully.")
+	case <-time.After(15 * time.Second):
+		logger.Warn("Cron scheduler shutdown timed out.")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
+	logger.Info("Shutting down HTTP server...")
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Error("Graceful shutdown failed", "error", err)
+		if !errors.Is(err, http.ErrServerClosed) {
+			logger.Error("HTTP server graceful shutdown failed", "error", err)
+		} else {
+			logger.Info("HTTP server shutdown initiated.")
+		}
 		if err := srv.Close(); err != nil {
-			logger.Error("Forced server close failed", "error", err)
+			logger.Error("HTTP server forced close failed", "error", err)
 		}
 	} else {
-		logger.Info("Server gracefully stopped.")
+		logger.Info("HTTP server gracefully stopped.")
+	}
+	logger.Info("Waiting for server goroutine to confirm exit...")
+	select {
+	case err := <-serverErrors:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Warn("Server goroutine exited with unexpected error after shutdown", "error", err)
+		} else {
+			logger.Info("Server goroutine confirmed exit.")
+		}
+	case <-time.After(5 * time.Second):
+		logger.Warn("Timed out waiting for server goroutine confirmation.")
 	}
 
-	<-serverErrors
-	logger.Info("Application shut down complete.")
+	logger.Info("Application shutdown process complete.")
 }
 
 func startBatchJobs(cfg *config.Config, logger *slog.Logger, updateJob *batch.UpdateDelinquencyJob) *cron.Cron {
