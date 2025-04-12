@@ -3,8 +3,8 @@ package loan
 import (
 	"billing-engine/internal/domain/customer"
 	"context"
+	"io"
 	"log/slog"
-	"os"
 	"testing"
 	"time"
 
@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-var logger = slog.New(slog.NewTextHandler(os.Stdout, nil))
+var logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 type MockCustomerService struct {
 	mock.Mock
