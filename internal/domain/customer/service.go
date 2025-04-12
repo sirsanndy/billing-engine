@@ -32,21 +32,28 @@ var _ CustomerService = (*customerService)(nil)
 
 type customerService struct {
 	repo   CustomerRepository
-	pub    event.EventPublisher
+	pub    *event.EventPublisher
 	logger *slog.Logger
 }
 
-func NewCustomerService(repo CustomerRepository, logger *slog.Logger) CustomerService {
+func NewCustomerService(repo CustomerRepository, eventPublisher *event.EventPublisher, logger *slog.Logger) CustomerService {
 	if repo == nil {
 		panic("customer repository cannot be nil")
 	}
-	if logger == nil {
 
+	if logger == nil {
 		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
 		logger.Warn("Warning: No logger provided to NewCustomerService, using default stderr handler")
 	}
+
+	if eventPublisher == nil || &eventPublisher == nil {
+		logger = slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn}))
+		logger.Warn("Warning: No event publisher provided to NewCustomerService, using default event publisher")
+	}
+
 	return &customerService{
 		repo:   repo,
+		pub:    eventPublisher,
 		logger: logger.With(slog.String("component", "customerService")),
 	}
 }
