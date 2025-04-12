@@ -2,6 +2,7 @@ package customer_test
 
 import (
 	"billing-engine/internal/domain/customer"
+	"billing-engine/internal/event"
 	"context"
 	"errors"
 	"fmt"
@@ -14,15 +15,36 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+type MockEventPublisher struct {
+	mock.Mock
+}
+
+func (m *MockEventPublisher) PublishCustomerCreated(ctx context.Context, event event.CustomerCreatedEvent) error {
+	args := m.Called(ctx, event)
+	return args.Error(0)
+}
+
+func (m *MockEventPublisher) PublishCustomerDelinquencyChanged(ctx context.Context, event event.CustomerDelinquencyChangedEvent) error {
+	args := m.Called(ctx, event)
+	return args.Error(0)
+}
+
+func (m *MockEventPublisher) PublishCustomerUpdated(ctx context.Context, event event.CustomerUpdatedEvent) error {
+	args := m.Called(ctx, event)
+	return args.Error(0)
+}
+
 func setupTest() (*customer.MockCustomerRepository, customer.CustomerService) {
 	mockRepo := new(customer.MockCustomerRepository)
-
+	mockEvent := new(MockEventPublisher)
+	mockEvent.On("PublishCustomerCreated", mock.Anything, mock.Anything).Return(nil)
+	mockEvent.On("PublishCustomerUpdated", mock.Anything, mock.Anything).Return(nil)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	service := customer.NewCustomerService(mockRepo, logger)
+	service := customer.NewCustomerService(mockRepo, mockEvent, logger)
 	return mockRepo, service
 }
 
-func TestCustomerService_CreateNewCustomer(t *testing.T) {
+func TestCustomerServiceCreateNewCustomer(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
@@ -106,7 +128,7 @@ func TestCustomerService_CreateNewCustomer(t *testing.T) {
 	})
 }
 
-func TestCustomerService_GetCustomer(t *testing.T) {
+func TestCustomerServiceGetCustomer(t *testing.T) {
 	ctx := context.Background()
 	customerID := int64(42)
 
@@ -152,7 +174,7 @@ func TestCustomerService_GetCustomer(t *testing.T) {
 	})
 }
 
-func TestCustomerService_ListActiveCustomers(t *testing.T) {
+func TestCustomerServiceListActiveCustomers(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success", func(t *testing.T) {
@@ -201,7 +223,7 @@ func TestCustomerService_ListActiveCustomers(t *testing.T) {
 	})
 }
 
-func TestCustomerService_UpdateCustomerAddress(t *testing.T) {
+func TestCustomerServiceUpdateCustomerAddress(t *testing.T) {
 	ctx := context.Background()
 	customerID := int64(55)
 	oldAddress := "Old Address Lane"
@@ -306,7 +328,7 @@ func TestCustomerService_UpdateCustomerAddress(t *testing.T) {
 	})
 }
 
-func TestCustomerService_AssignLoanToCustomer(t *testing.T) {
+func TestCustomerServiceAssignLoanToCustomer(t *testing.T) {
 	ctx := context.Background()
 	customerID := int64(77)
 	loanID := int64(1001)
@@ -453,7 +475,7 @@ func TestCustomerService_AssignLoanToCustomer(t *testing.T) {
 	})
 }
 
-func TestCustomerService_UpdateDelinquency(t *testing.T) {
+func TestCustomerServiceUpdateDelinquency(t *testing.T) {
 	ctx := context.Background()
 	customerID := int64(88)
 
@@ -475,6 +497,9 @@ func TestCustomerService_UpdateDelinquency(t *testing.T) {
 			mockRepo, service := setupTest()
 
 			mockRepo.On("SetDelinquencyStatus", ctx, customerID, tc.isDelinquent).Return(tc.repoError).Once()
+			if tc.name != "Error - Not Found" && tc.name != "Error - Repository Failure" {
+				mockRepo.On("FindByID", ctx, customerID).Return(&customer.Customer{CustomerID: customerID}, nil).Once()
+			}
 
 			err := service.UpdateDelinquency(ctx, customerID, tc.isDelinquent)
 
@@ -497,13 +522,14 @@ func TestCustomerService_UpdateDelinquency(t *testing.T) {
 	}
 }
 
-func TestCustomerService_DeactivateCustomer(t *testing.T) {
+func TestCustomerServiceDeactivateCustomer(t *testing.T) {
 	ctx := context.Background()
 	customerID := int64(99)
 
 	t.Run("Success", func(t *testing.T) {
 		mockRepo, service := setupTest()
 		mockRepo.On("SetActiveStatus", ctx, customerID, false).Return(nil).Once()
+		mockRepo.On("FindByID", ctx, customerID).Return(&customer.Customer{CustomerID: customerID}, nil).Once()
 		err := service.DeactivateCustomer(ctx, customerID)
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
@@ -530,13 +556,14 @@ func TestCustomerService_DeactivateCustomer(t *testing.T) {
 	})
 }
 
-func TestCustomerService_ReactivateCustomer(t *testing.T) {
+func TestCustomerServiceReactivateCustomer(t *testing.T) {
 	ctx := context.Background()
 	customerID := int64(111)
 
 	t.Run("Success", func(t *testing.T) {
 		mockRepo, service := setupTest()
 		mockRepo.On("SetActiveStatus", ctx, customerID, true).Return(nil).Once()
+		mockRepo.On("FindByID", ctx, customerID).Return(&customer.Customer{CustomerID: customerID}, nil).Once()
 		err := service.ReactivateCustomer(ctx, customerID)
 		assert.NoError(t, err)
 		mockRepo.AssertExpectations(t)
@@ -563,7 +590,7 @@ func TestCustomerService_ReactivateCustomer(t *testing.T) {
 	})
 }
 
-func TestCustomerService_FindCustomerByLoan(t *testing.T) {
+func TestCustomerServiceFindCustomerByLoan(t *testing.T) {
 	ctx := context.Background()
 	loanID := int64(2002)
 	customerID := int64(121)
@@ -613,14 +640,14 @@ func TestCustomerService_FindCustomerByLoan(t *testing.T) {
 func TestNewCustomerService(t *testing.T) {
 	t.Run("Panic on nil repository", func(t *testing.T) {
 		assert.PanicsWithValue(t, "customer repository cannot be nil", func() {
-			customer.NewCustomerService(nil, slog.Default())
+			customer.NewCustomerService(nil, nil, slog.Default())
 		})
 	})
 
 	t.Run("Default logger if none provided", func(t *testing.T) {
 
 		assert.NotPanics(t, func() {
-			_ = customer.NewCustomerService(new(customer.MockCustomerRepository), nil)
+			_ = customer.NewCustomerService(new(customer.MockCustomerRepository), nil, nil)
 		})
 
 	})
