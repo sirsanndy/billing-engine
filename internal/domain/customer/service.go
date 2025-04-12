@@ -119,7 +119,17 @@ func (s *customerService) CreateNewCustomer(ctx context.Context, name, address s
 
 		return nil, fmt.Errorf("failed to save new customer: %w", err)
 	}
-
+	s.logger = s.logger.With(slog.Int64("customerID", customer.CustomerID))
+	s.logger.InfoContext(ctx, "Successfully saved new customer, publishing creation event")
+	createdEvent := event.CustomerCreatedEvent{
+		Timestamp: time.Now(),
+		Payload:   NewCustomerEventPayload(customer),
+	}
+	if pubErr := s.pub.PublishCustomerCreated(ctx, createdEvent); pubErr != nil {
+		s.logger.ErrorContext(ctx, "Customer created, but FAILED to publish creation event", slog.Any("error", pubErr))
+	} else {
+		s.logger.InfoContext(ctx, "Successfully published customer creation event")
+	}
 	s.logger = s.logger.With(slog.Int64("customerID", customer.CustomerID))
 	s.logger.InfoContext(ctx, "Successfully created new customer")
 	return customer, nil
