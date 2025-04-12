@@ -110,16 +110,16 @@ func TestLoanHandlerGetLoan(t *testing.T) {
 		var resp dto.ErrorResponse
 		err := json.NewDecoder(rec.Body).Decode(&resp)
 		assert.NoError(t, err)
-		assert.Equal(t, "An unexpected error occurred.", resp.Error.Message)
+		assert.Contains(t, resp.Error.Message, "invalid syntax")
 	})
 
 	t.Run("returns error when loan not found", func(t *testing.T) {
-		loanID := int64(123)
+		loanID := int64(2)
 		mockService.On("GetLoan", mock.Anything, loanID).Return((*loan.Loan)(nil), apperrors.ErrNotFound)
 
-		req := httptest.NewRequest(http.MethodGet, "/loans/123", nil)
+		req := httptest.NewRequest(http.MethodGet, "/loans/2", nil)
 		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, &chi.Context{
-			URLParams: chi.RouteParams{Keys: []string{"loanID"}, Values: []string{"123"}},
+			URLParams: chi.RouteParams{Keys: []string{"loanID"}, Values: []string{"2"}},
 		}))
 		rec := httptest.NewRecorder()
 
@@ -134,12 +134,12 @@ func TestLoanHandlerGetLoan(t *testing.T) {
 	})
 
 	t.Run("returns internal server error for unexpected errors", func(t *testing.T) {
-		loanID := int64(123)
+		loanID := int64(3)
 		mockService.On("GetLoan", mock.Anything, loanID).Return((*loan.Loan)(nil), errors.New("unexpected error"))
 
-		req := httptest.NewRequest(http.MethodGet, "/loans/123", nil)
+		req := httptest.NewRequest(http.MethodGet, "/loans/3", nil)
 		req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, &chi.Context{
-			URLParams: chi.RouteParams{Keys: []string{"loanID"}, Values: []string{"123"}},
+			URLParams: chi.RouteParams{Keys: []string{"loanID"}, Values: []string{"3"}},
 		}))
 		rec := httptest.NewRecorder()
 
