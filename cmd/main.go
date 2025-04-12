@@ -129,22 +129,33 @@ func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, rabbitConn *amqp
 	shutdownChan <-chan os.Signal, serverErrors <-chan error, logger *slog.Logger) {
 	logger.Info("Shutdown handler started. Waiting for signal or server error...")
 
-	var triggerReason string
+	triggerReason := waitForShutdownTrigger(shutdownChan, serverErrors, logger)
+
+	logger.Info("Starting graceful shutdown...", "trigger", triggerReason)
+
+	stopCronScheduler(cronScheduler, logger)
+	closeRabbitMQConnection(rabbitConn, logger)
+	shutdownHTTPServer(srv, serverErrors, logger)
+
+	logger.Info("Application shutdown process complete.")
+}
+
+func waitForShutdownTrigger(shutdownChan <-chan os.Signal, serverErrors <-chan error, logger *slog.Logger) string {
 	select {
 	case sig := <-shutdownChan:
-		triggerReason = "signal: " + sig.String()
 		logger.Info("Shutdown signal received.", "signal", sig.String())
+		return "signal: " + sig.String()
 	case err := <-serverErrors:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("Server exited unexpectedly before signal", "error", err)
 			os.Exit(1)
 		}
-		triggerReason = "server exited"
 		logger.Info("Server goroutine finished before signal.", "error", err)
+		return "server exited"
 	}
+}
 
-	logger.Info("Starting graceful shutdown...", "trigger", triggerReason)
-
+func stopCronScheduler(cronScheduler *cron.Cron, logger *slog.Logger) {
 	logger.Info("Stopping cron scheduler...")
 	cronCtx := cronScheduler.Stop()
 	select {
@@ -153,7 +164,9 @@ func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, rabbitConn *amqp
 	case <-time.After(15 * time.Second):
 		logger.Warn("Cron scheduler shutdown timed out.")
 	}
+}
 
+func closeRabbitMQConnection(rabbitConn *amqp.Connection, logger *slog.Logger) {
 	if rabbitConn != nil && !rabbitConn.IsClosed() {
 		logger.Info("Closing RabbitMQ connection...")
 		if err := rabbitConn.Close(); err != nil {
@@ -166,9 +179,10 @@ func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, rabbitConn *amqp
 	} else {
 		logger.Info("RabbitMQ connection already closed, skipping close.")
 	}
+}
 
+func shutdownHTTPServer(srv *http.Server, serverErrors <-chan error, logger *slog.Logger) {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-
 	defer cancel()
 
 	logger.Info("Shutting down HTTP server...")
@@ -184,6 +198,7 @@ func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, rabbitConn *amqp
 	} else {
 		logger.Info("HTTP server gracefully stopped.")
 	}
+
 	logger.Info("Waiting for server goroutine to confirm exit...")
 	select {
 	case err := <-serverErrors:
@@ -195,8 +210,6 @@ func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, rabbitConn *amqp
 	case <-time.After(5 * time.Second):
 		logger.Warn("Timed out waiting for server goroutine confirmation.")
 	}
-
-	logger.Info("Application shutdown process complete.")
 }
 
 func startBatchJobs(cfg *config.Config, logger *slog.Logger, updateJob *batch.UpdateDelinquencyJob) *cron.Cron {
