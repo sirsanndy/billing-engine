@@ -311,14 +311,9 @@ func TestUpdateDelinquencyJobRun(t *testing.T) {
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	mockLoanRepo := new(MockLoanRepository)
-	mockLoanService := new(MockLoanService)
-	mockCustomerService := new(MockCustomerService)
-
-	job := batch.NewUpdateDelinquencyJob(mockLoanRepo, mockLoanService, mockCustomerService, logger)
-
 	t.Run("successfully processes loans", func(t *testing.T) {
 		activeLoanIDs := []int64{1, 2}
+		mockLoanRepo, mockLoanService, mockCustomerService, job := newFunction(logger)
 		mockLoanRepo.On("GetAllActiveLoanIDs", ctx).Return(activeLoanIDs, nil)
 
 		mockLoanService.On("IsDelinquent", ctx, int64(1)).Return(true, nil)
@@ -339,6 +334,7 @@ func TestUpdateDelinquencyJobRun(t *testing.T) {
 	})
 
 	t.Run("handles repository error", func(t *testing.T) {
+		mockLoanRepo, _, _, job := newFunction(logger)
 		mockLoanRepo.On("GetAllActiveLoanIDs", ctx).Return(nil, fmt.Errorf("%w: failed to query active loans: %w", apperrors.ErrDatabase, nil))
 
 		err := job.Run(ctx)
@@ -350,6 +346,7 @@ func TestUpdateDelinquencyJobRun(t *testing.T) {
 
 	t.Run("handles loan service error", func(t *testing.T) {
 		activeLoanIDs := []int64{1}
+		mockLoanRepo, mockLoanService, _, job := newFunction(logger)
 		mockLoanRepo.On("GetAllActiveLoanIDs", ctx).Return(activeLoanIDs, nil)
 
 		mockLoanService.On("IsDelinquent", ctx, int64(1)).Return(false, errors.New("loan service error"))
@@ -363,6 +360,7 @@ func TestUpdateDelinquencyJobRun(t *testing.T) {
 
 	t.Run("handles customer service error", func(t *testing.T) {
 		activeLoanIDs := []int64{1}
+		mockLoanRepo, mockLoanService, mockCustomerService, job := newFunction(logger)
 		mockLoanRepo.On("GetAllActiveLoanIDs", ctx).Return(activeLoanIDs, nil)
 
 		mockLoanService.On("IsDelinquent", ctx, int64(1)).Return(true, nil)
@@ -377,6 +375,7 @@ func TestUpdateDelinquencyJobRun(t *testing.T) {
 	})
 
 	t.Run("handles no active loans", func(t *testing.T) {
+		mockLoanRepo, _, _, job := newFunction(logger)
 		mockLoanRepo.On("GetAllActiveLoanIDs", ctx).Return([]int64{}, nil)
 
 		err := job.Run(ctx)
@@ -384,4 +383,13 @@ func TestUpdateDelinquencyJobRun(t *testing.T) {
 
 		mockLoanRepo.AssertExpectations(t)
 	})
+}
+
+func newFunction(logger *slog.Logger) (*MockLoanRepository, *MockLoanService, *MockCustomerService, *batch.UpdateDelinquencyJob) {
+	mockLoanRepo := new(MockLoanRepository)
+	mockLoanService := new(MockLoanService)
+	mockCustomerService := new(MockCustomerService)
+
+	job := batch.NewUpdateDelinquencyJob(mockLoanRepo, mockLoanService, mockCustomerService, logger)
+	return mockLoanRepo, mockLoanService, mockCustomerService, job
 }
