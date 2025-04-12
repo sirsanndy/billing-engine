@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	amqp "github.com/rabbitmq/amqp091-go"
 	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -55,6 +56,8 @@ func TestStartServer(t *testing.T) {
 func TestHandleShutdown(t *testing.T) {
 	logger := logging.NewLogger(config.LoggerConfig{})
 	cronScheduler := cron.New()
+	rabbitMQConn, err := amqp.Dial("amqp://test:test_guest@localhost:5672/")
+	assert.Error(t, err, "Failed to establish RabbitMQ connection")
 	srv := &http.Server{}
 	shutdownChan := make(chan os.Signal, 1)
 	serverErrors := make(chan error, 1)
@@ -63,6 +66,6 @@ func TestHandleShutdown(t *testing.T) {
 		shutdownChan <- syscall.SIGINT
 	}()
 
-	handleShutdown(srv, cronScheduler, shutdownChan, serverErrors, logger)
+	handleShutdown(srv, cronScheduler, rabbitMQConn, shutdownChan, serverErrors, logger)
 	assert.True(t, true, "Graceful shutdown should complete without errors")
 }

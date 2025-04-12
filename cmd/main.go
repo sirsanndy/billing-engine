@@ -19,6 +19,8 @@ import (
 	"syscall"
 	"time"
 
+	amqp "github.com/rabbitmq/amqp091-go"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robfig/cron/v3"
 	"github.com/spf13/viper"
@@ -51,9 +53,10 @@ func main() {
 
 	cronScheduler := startBatchJobs(cfg, logger, updateJob)
 	router := api.SetupRouter(loanService, customerService, cfg, logger)
+	rabbitMQConn, _ := setupRabbitMQ(cfg, logger)
 
 	srv, serverErrors, shutdownChan := startServer(cfg, router, logger)
-	handleShutdown(srv, cronScheduler, shutdownChan, serverErrors, logger)
+	handleShutdown(srv, cronScheduler, rabbitMQConn, shutdownChan, serverErrors, logger)
 }
 
 func initializeApp() (*config.Config, *slog.Logger) {
@@ -122,7 +125,8 @@ func startServer(cfg *config.Config, router http.Handler, logger *slog.Logger) (
 	return srv, serverErrors, shutdownChan
 }
 
-func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, shutdownChan <-chan os.Signal, serverErrors <-chan error, logger *slog.Logger) {
+func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, rabbitConn *amqp.Connection,
+	shutdownChan <-chan os.Signal, serverErrors <-chan error, logger *slog.Logger) {
 	logger.Info("Shutdown handler started. Waiting for signal or server error...")
 
 	var triggerReason string
@@ -150,7 +154,21 @@ func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, shutdownChan <-c
 		logger.Warn("Cron scheduler shutdown timed out.")
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	if rabbitConn != nil && !rabbitConn.IsClosed() {
+		logger.Info("Closing RabbitMQ connection...")
+		if err := rabbitConn.Close(); err != nil {
+			logger.Error("Failed to close RabbitMQ connection gracefully", slog.Any("error", err))
+		} else {
+			logger.Info("RabbitMQ connection closed.")
+		}
+	} else if rabbitConn == nil {
+		logger.Info("RabbitMQ connection was not established, skipping close.")
+	} else {
+		logger.Info("RabbitMQ connection already closed, skipping close.")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+
 	defer cancel()
 
 	logger.Info("Shutting down HTTP server...")
@@ -225,4 +243,66 @@ func startBatchJobs(cfg *config.Config, logger *slog.Logger, updateJob *batch.Up
 
 func setupLogger(cfg config.LoggerConfig) *slog.Logger {
 	return logging.NewLogger(cfg)
+}
+
+func connectRabbitMQ(uri string, logger *slog.Logger) (*amqp.Connection, error) {
+	var conn *amqp.Connection
+	var err error
+	retryCount := 5
+	for i := 1; i <= retryCount; i++ {
+		conn, err = amqp.Dial(uri)
+		if err == nil {
+			logger.Info("Successfully connected to RabbitMQ")
+
+			go func() {
+				blockChan := conn.NotifyBlocked(make(chan amqp.Blocking))
+				closeChan := conn.NotifyClose(make(chan *amqp.Error))
+
+				select {
+				case b := <-blockChan:
+					logger.Warn("RabbitMQ Connection Blocked", "reason", b.Reason)
+				case e := <-closeChan:
+					logger.Error("RabbitMQ Connection Closed", slog.Any("error", e))
+				}
+			}()
+
+			return conn, nil
+		}
+		logger.Warn("Failed to connect to RabbitMQ, retrying...",
+			slog.Int("attempt", i),
+			slog.Int("max_attempts", retryCount),
+			slog.Any("error", err),
+		)
+		time.Sleep(time.Duration(i*2) * time.Second)
+	}
+	return nil, fmt.Errorf("failed to connect to RabbitMQ after %d attempts: %w", retryCount, err)
+}
+
+func setupRabbitMQ(cfg *config.Config, logger *slog.Logger) (*amqp.Connection, error) {
+	rabbitMQURI := cfg.RabbitMQ.Host
+
+	if rabbitMQURI == "" {
+		return nil, fmt.Errorf("RabbitMQ host is not configured")
+	}
+
+	if cfg.RabbitMQ.Port != 0 {
+		rabbitMQURI = fmt.Sprintf("amqp://%s:%d", cfg.RabbitMQ.Host, cfg.RabbitMQ.Port)
+	}
+
+	if cfg.RabbitMQ.Username != "" && cfg.RabbitMQ.Password != "" {
+		rabbitMQURI = fmt.Sprintf("amqp://%s:%s@%s:%d", cfg.RabbitMQ.Username, cfg.RabbitMQ.Password, cfg.RabbitMQ.Host, cfg.RabbitMQ.Port)
+	} else if cfg.RabbitMQ.Username != "" || cfg.RabbitMQ.Password != "" {
+		return nil, fmt.Errorf("RabbitMQ username and password must be provided together")
+	}
+
+	if rabbitMQURI == "" {
+		return nil, fmt.Errorf("RabbitMQ URI is not configured")
+	}
+
+	conn, err := connectRabbitMQ(rabbitMQURI, logger)
+	if err != nil {
+		logger.Error("Failed to connect to RabbitMQ", "error", err)
+		return nil, err
+	}
+	return conn, nil
 }
