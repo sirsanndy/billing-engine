@@ -95,6 +95,10 @@ func LoadConfig(path string) (*Config, error) {
 	viper.SetDefault("server.auth.JWTSecret", "")
 	viper.SetDefault("batch.delinquencySchedule", "0 2 * * *")
 	viper.SetDefault("batch.delinquencyTimeout", 30)
+	viper.SetDefault("rabbitmq.host", "localhost")
+	viper.SetDefault("rabbitmq.port", 5672)
+	viper.SetDefault("rabbitmq.username", "guest")
+	viper.SetDefault("rabbitmq.password", "guest")
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
