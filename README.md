@@ -5,6 +5,7 @@
 
 This is the documentation for the Billing Engine service. It manages customers, loans, payments, and related billing operations.
 Using REST as API Layers and batch job for managing delinquency status of customer and its loan. Secured with JWT and Rate Limiter.
+RabbitMQ as message broker for customer and its loan status changed event and replicate the data to notify-service.
 
 ## Table of Contents
 
@@ -222,59 +223,61 @@ Here is a summary of the available endpoints grouped by tags based on the Swagge
 - Prometheus as Application Performance Monitoring
 - Cron as Cron Job to Update Delinquency Status of Loan
 - pgxmock for mocking pgxpool and pgxconn for Unit Test
+- RabbitMQ as Message broker to notify customer loan status and replicate to another service (notify-service)
 
 ## Project Structure
 ```
 billing-engine/
-├── cmd/
-│   ├── main.go
-│   └── config.yml
-├── internal/
-│   ├── api/
-│   │   ├── handler/
-│   │   │   ├── dto/
-│   │   │   │   ├── customer_dto.go
-│   │   │   │   └── loan_dto.go
-│   │   │   ├── auth_handler.go
-│   │   │   ├── customer_handler.go
-│   │   │   └── loan_handler.go
-│   │   ├── middleware/
-│   │   │   ├── auth.go
-│   │   │   ├── logger.go
-│   │   │   ├── metrics.go
-│   │   │   └── ratelimit.go
-│   │   └── router.go
-│   ├── batch/
-│   │   └──delinquency_job.go
-│   ├── config/
-│   │   └──config.go
-│   ├── domain/
-│   │   ├──customer/
-│   │   │   ├── customer.go
-│   │   │   ├── repository.go
-│   │   │   └── service.go
-│   │   ├──loan/
-│   │   │   ├── loan.go
-│   │   │   ├── repository.go
-│   │   │   └── service.go
-│   ├── infrastructure/
-│   │   ├── database/postgres/
-│   │   │   ├── connection.go
-│   │   │   ├── customer_repository.go
-│   │   │   └── loan_repository.go
-│   │   ├── logging/logger.go
-│   │   └── monitoring/metrics.go
-│   └── pkg/apperrors/errors.go
-├── docs/
-├── migrations/
-│   ├── 001_create_loans_table.sql
-│   ├── 002_create_schedule_table.sql
-│   └── 002_create_customer_table.sql
-├── .env.example
-├── .gitignore
-├── config.yml
-├── go.mod
-├── go.sum
-├── Makefile
+├── billing-engine/
+│   ├── cmd/
+│   │   ├── main.go
+│   │   └── config.yml
+│   ├── internal/
+│   │   ├── api/
+│   │   │   ├── handler/
+│   │   │   │   ├── dto/
+│   │   │   │   │   ├── customer_dto.go
+│   │   │   │   │   └── loan_dto.go
+│   │   │   │   ├── auth_handler.go
+│   │   │   │   ├── customer_handler.go
+│   │   │   │   └── loan_handler.go
+│   │   │   ├── middleware/
+│   │   │   │   ├── auth.go
+│   │   │   │   ├── logger.go
+│   │   │   │   ├── metrics.go
+│   │   │   │   └── ratelimit.go
+│   │   │   └── router.go
+│   │   ├── batch/
+│   │   │   └──delinquency_job.go
+│   │   ├── config/
+│   │   │   └──config.go
+│   │   ├── domain/
+│   │   │   ├──customer/
+│   │   │   │   ├── customer.go
+│   │   │   │   ├── repository.go
+│   │   │   │   └── service.go
+│   │   │   ├──loan/
+│   │   │   │   ├── loan.go
+│   │   │   │   ├── repository.go
+│   │   │   │   └── service.go
+│   │   ├── infrastructure/
+│   │   │   ├── database/postgres/
+│   │   │   │   ├── connection.go
+│   │   │   │   ├── customer_repository.go
+│   │   │   │   └── loan_repository.go
+│   │   │   ├── logging/logger.go
+│   │   │   └── monitoring/metrics.go
+│   │   └── pkg/apperrors/errors.go
+│   ├── docs/
+│   ├── migrations/
+│   │   ├── 001_create_loans_table.sql
+│   │   ├── 002_create_schedule_table.sql
+│   │   └── 002_create_customer_table.sql
+│   ├── .env.example
+│   ├── .gitignore
+│   ├── config.yml
+│   ├── go.mod
+│   ├── go.sum
+│   ├── Makefile
 └── README.md
 ```
