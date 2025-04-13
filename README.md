@@ -227,8 +227,7 @@ Here is a summary of the available endpoints grouped by tags based on the Swagge
 
 ## Project Structure
 ```
-.
-├── billing-engine
+.billing-engine
     ├── billing-engine
     │   ├── bin
     │   ├── cmd
