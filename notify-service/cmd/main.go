@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -57,7 +58,7 @@ func setupSignalHandling() (context.Context, context.CancelFunc) {
 	return ctx, cancel
 }
 
-func setupDatabase(ctx context.Context, cfg *config.Config, logger *slog.Logger) *postgres.DBPool {
+func setupDatabase(ctx context.Context, cfg *config.Config, logger *slog.Logger) *pgxpool.Pool {
 	dbpool, err := postgres.NewConnectionPool(ctx, cfg.Database, logger)
 	if err != nil {
 		logger.Error("Failed to connect to database", slog.Any("error", err))
@@ -67,7 +68,7 @@ func setupDatabase(ctx context.Context, cfg *config.Config, logger *slog.Logger)
 	return dbpool
 }
 
-func closeDatabase(dbpool *postgres.DBPool, logger *slog.Logger) {
+func closeDatabase(dbpool *pgxpool.Pool, logger *slog.Logger) {
 	logger.Info("Closing database connection pool...")
 	dbpool.Close()
 }
