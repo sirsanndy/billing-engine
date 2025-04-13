@@ -24,7 +24,7 @@ func SetupRouter(loanService loan.LoanService, customerService customer.Customer
 
 	setupMiddleware(router, cfg, logger)
 	setupMetricsEndpoint(router, cfg, logger)
-	setupCustomerRoutes(router, customerService, logger)
+	setupCustomerRoutes(router, cfg, customerService, logger)
 	setupLoanRoutes(router, loanService, cfg, logger)
 	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -82,14 +82,14 @@ func setupLoanRoutes(router *chi.Mux, loanService loan.LoanService, cfg *config.
 	})
 }
 
-func setupCustomerRoutes(r chi.Router, svc customer.CustomerService, logger *slog.Logger) {
+func setupCustomerRoutes(r chi.Router, cfg *config.Config, svc customer.CustomerService, logger *slog.Logger) {
 	h := handler.NewCustomerHandler(svc, logger)
 
 	r.Route("/customers", func(r chi.Router) {
+		r.Use(mw.AuthMiddleware(cfg.Server.Auth, logger))
 		r.Post("/", h.CreateCustomer)
 		r.Get("/", h.ListCustomers)
 		r.Get("/", h.FindCustomerByLoan)
-
 		r.Route("/{customerID}", func(r chi.Router) {
 			r.Get("/", h.GetCustomer)
 			r.Delete("/", h.DeactivateCustomer)
