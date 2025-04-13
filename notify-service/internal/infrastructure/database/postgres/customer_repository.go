@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 	"notify-service/internal/domain/customer"
+	"notify-service/internal/infrastructure/monitoring"
 	"os"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -50,26 +52,28 @@ func NewCustomerRepository(db DBPool, logger *slog.Logger) *CustomerRepository {
 }
 
 func (r *CustomerRepository) Upsert(ctx context.Context, cust *customer.Customer) error {
+	startTime := time.Now()
 	r.logger.With(slog.Int64("customerID", cust.CustomerID))
 	r.logger.DebugContext(ctx, "Attempting to upsert customer")
+	status := "success"
 
 	upsertSQL := `
-        INSERT INTO customers (id, name, address, is_delinquent, active, loan_id, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (id) DO UPDATE SET
-            name = EXCLUDED.name,
-            address = EXCLUDED.address,
-            is_delinquent = EXCLUDED.is_delinquent,
-            active = EXCLUDED.active,
-            loan_id = EXCLUDED.loan_id,
-            -- created_at should not be updated on conflict
-            updated_at = EXCLUDED.updated_at
-        WHERE customers.updated_at < EXCLUDED.updated_at;
-        -- Or remove WHERE clause if last write should always win:
-        -- updated_at = EXCLUDED.updated_at
-    `
+		INSERT INTO customers (id, name, address, is_delinquent, active, loan_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (id) DO UPDATE SET
+			name = EXCLUDED.name,
+			address = EXCLUDED.address,
+			is_delinquent = EXCLUDED.is_delinquent,
+			active = EXCLUDED.active,
+			loan_id = EXCLUDED.loan_id,
+			-- created_at should not be updated on conflict
+			updated_at = EXCLUDED.updated_at
+		WHERE customers.updated_at < EXCLUDED.updated_at
+		RETURNING (xmax = 0) AS is_insert;
+	`
 
-	cmdTag, err := r.db.Exec(ctx, upsertSQL,
+	var isInsert bool
+	err := r.db.QueryRow(ctx, upsertSQL,
 		cust.CustomerID,
 		cust.Name,
 		cust.Address,
@@ -78,13 +82,20 @@ func (r *CustomerRepository) Upsert(ctx context.Context, cust *customer.Customer
 		cust.LoanID,
 		cust.CreatedAt,
 		cust.UpdatedAt,
-	)
+	).Scan(&isInsert)
+
+	if err != nil {
+		status = "error"
+	}
+
+	monitoring.RecordDBQuery("Upsert", status, time.Since(startTime))
+	monitoring.RecordCostumer(isInsert)
 
 	if err != nil {
 		r.logger.ErrorContext(ctx, "Database upsert failed", slog.Any("error", err))
 		return fmt.Errorf("failed to upsert customer %d: %w", cust.CustomerID, err)
 	}
 
-	r.logger.InfoContext(ctx, "Customer upsert successful", slog.Int64("rows_affected", cmdTag.RowsAffected()))
+	r.logger.InfoContext(ctx, "Customer upsert successful")
 	return nil
 }

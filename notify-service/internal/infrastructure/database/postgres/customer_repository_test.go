@@ -52,32 +52,33 @@ func TestCustomerRepositoryUpsert(t *testing.T) {
 	}
 
 	upsertSQL := `
-        INSERT INTO customers (id, name, address, is_delinquent, active, loan_id, created_at, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        ON CONFLICT (id) DO UPDATE SET
-            name = EXCLUDED.name,
-            address = EXCLUDED.address,
-            is_delinquent = EXCLUDED.is_delinquent,
-            active = EXCLUDED.active,
-            loan_id = EXCLUDED.loan_id,
-            -- created_at should not be updated on conflict
-            updated_at = EXCLUDED.updated_at
-        WHERE customers.updated_at < EXCLUDED.updated_at;
-        -- Or remove WHERE clause if last write should always win:
-        -- updated_at = EXCLUDED.updated_at
-    `
+		INSERT INTO customers (id, name, address, is_delinquent, active, loan_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		ON CONFLICT (id) DO UPDATE SET
+			name = EXCLUDED.name,
+			address = EXCLUDED.address,
+			is_delinquent = EXCLUDED.is_delinquent,
+			active = EXCLUDED.active,
+			loan_id = EXCLUDED.loan_id,
+			-- created_at should not be updated on conflict
+			updated_at = EXCLUDED.updated_at
+		WHERE customers.updated_at < EXCLUDED.updated_at
+		RETURNING (xmax = 0) AS is_insert;
+	`
 
 	t.Run("successful upsert", func(t *testing.T) {
-		mockPool.ExpectExec(regexp.QuoteMeta(upsertSQL)).WithArgs(
-			customerTest.CustomerID,
-			customerTest.Name,
-			customerTest.Address,
-			customerTest.IsDelinquent,
-			customerTest.Active,
-			customerTest.LoanID,
-			customerTest.CreatedAt,
-			customerTest.UpdatedAt,
-		).WillReturnResult(pgxmock.NewResult("INSERT", 1))
+		mockPool.ExpectQuery(regexp.QuoteMeta(upsertSQL)).
+			WithArgs(
+				customerTest.CustomerID,
+				customerTest.Name,
+				customerTest.Address,
+				customerTest.IsDelinquent,
+				customerTest.Active,
+				customerTest.LoanID,
+				customerTest.CreatedAt,
+				customerTest.UpdatedAt,
+			).WillReturnRows(pgxmock.NewRows([]string{"is_insert"}).
+			AddRow(true))
 
 		err := repo.Upsert(ctx, customerTest)
 		assert.NoError(t, err)
@@ -85,7 +86,7 @@ func TestCustomerRepositoryUpsert(t *testing.T) {
 	})
 
 	t.Run("failed upsert", func(t *testing.T) {
-		mockPool.ExpectExec(regexp.QuoteMeta(upsertSQL)).WithArgs(
+		mockPool.ExpectQuery(regexp.QuoteMeta(upsertSQL)).WithArgs(
 			customerTest.CustomerID,
 			customerTest.Name,
 			customerTest.Address,

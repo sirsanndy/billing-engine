@@ -19,6 +19,7 @@ type DBMetrics struct {
 type BusinessMetrics struct {
 	ConsumerCreatedTotal prometheus.Counter
 	CostumerCreatedTotal prometheus.Counter
+	CostumerUpdatedTotal prometheus.Counter
 }
 
 var (
@@ -60,8 +61,14 @@ var (
 		),
 		CostumerCreatedTotal: promauto.NewCounter(
 			prometheus.CounterOpts{
-				Name: "consumer_notify_service_total",
-				Help: "Total number of consumer successfully created.",
+				Name: "costumer_created_notify_service_total",
+				Help: "Total number of costumer successfully created.",
+			},
+		),
+		CostumerUpdatedTotal: promauto.NewCounter(
+			prometheus.CounterOpts{
+				Name: "costumer_updated_notify_service_total",
+				Help: "Total number of costumer successfully updated.",
 			},
 		),
 	}
@@ -80,6 +87,10 @@ func RecordConsumerProcessed() {
 	Business.ConsumerCreatedTotal.Inc()
 }
 
-func RecordCostumerCreated() {
-	Business.ConsumerCreatedTotal.Inc()
+func RecordCostumer(actionInsert bool) {
+	if actionInsert {
+		Business.CostumerCreatedTotal.Inc()
+	} else {
+		Business.CostumerUpdatedTotal.Inc()
+	}
 }
