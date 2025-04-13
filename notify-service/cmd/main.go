@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"notify-service/internal/config"
 	event "notify-service/internal/event/customer"
 	"notify-service/internal/infrastructure/database/postgres"
@@ -14,6 +15,7 @@ import (
 	"syscall"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -30,6 +32,10 @@ func main() {
 
 	customerRepo := postgres.NewCustomerRepository(dbpool, logger)
 	eventHandler := event.NewCustomerEventHandler(customerRepo, logger)
+
+	logger.Info("Setting up Prometheus metrics endpoint", "path", "/metrics")
+	http.Handle("/metrics", promhttp.Handler())
+	http.ListenAndServe(":8090", nil)
 
 	consumer := setupConsumer(rabbitConn, cfg, eventHandler, logger)
 	startConsumer(ctx, consumer, logger)
