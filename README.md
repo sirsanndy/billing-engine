@@ -227,57 +227,132 @@ Here is a summary of the available endpoints grouped by tags based on the Swagge
 
 ## Project Structure
 ```
-billing-engine/
-├── billing-engine/
-│   ├── cmd/
-│   │   ├── main.go
-│   │   └── config.yml
-│   ├── internal/
-│   │   ├── api/
-│   │   │   ├── handler/
-│   │   │   │   ├── dto/
-│   │   │   │   │   ├── customer_dto.go
-│   │   │   │   │   └── loan_dto.go
-│   │   │   │   ├── auth_handler.go
-│   │   │   │   ├── customer_handler.go
-│   │   │   │   └── loan_handler.go
-│   │   │   ├── middleware/
-│   │   │   │   ├── auth.go
-│   │   │   │   ├── logger.go
-│   │   │   │   ├── metrics.go
-│   │   │   │   └── ratelimit.go
-│   │   │   └── router.go
-│   │   ├── batch/
-│   │   │   └──delinquency_job.go
-│   │   ├── config/
-│   │   │   └──config.go
-│   │   ├── domain/
-│   │   │   ├──customer/
-│   │   │   │   ├── customer.go
-│   │   │   │   ├── repository.go
-│   │   │   │   └── service.go
-│   │   │   ├──loan/
-│   │   │   │   ├── loan.go
-│   │   │   │   ├── repository.go
-│   │   │   │   └── service.go
-│   │   ├── infrastructure/
-│   │   │   ├── database/postgres/
-│   │   │   │   ├── connection.go
-│   │   │   │   ├── customer_repository.go
-│   │   │   │   └── loan_repository.go
-│   │   │   ├── logging/logger.go
-│   │   │   └── monitoring/metrics.go
-│   │   └── pkg/apperrors/errors.go
-│   ├── docs/
-│   ├── migrations/
-│   │   ├── 001_create_loans_table.sql
-│   │   ├── 002_create_schedule_table.sql
-│   │   └── 002_create_customer_table.sql
-│   ├── .env.example
-│   ├── .gitignore
-│   ├── config.yml
-│   ├── go.mod
-│   ├── go.sum
-│   ├── Makefile
-└── README.md
+.
+├── billing-engine
+│   ├── billing-engine
+│   │   ├── bin
+│   │   ├── cmd
+│   │   │   ├── config.yml
+│   │   │   ├── main.go
+│   │   │   └── main_test.go
+│   │   ├── config.yml
+│   │   ├── docs
+│   │   │   ├── docs.go
+│   │   │   ├── swagger.json
+│   │   │   └── swagger.yaml
+│   │   ├── go.mod
+│   │   ├── go.sum
+│   │   ├── internal
+│   │   │   ├── api
+│   │   │   │   ├── handler
+│   │   │   │   │   ├── auth_handler.go
+│   │   │   │   │   ├── auth_handler_test.go
+│   │   │   │   │   ├── customer_handler.go
+│   │   │   │   │   ├── customer_handler_test.go
+│   │   │   │   │   ├── dto
+│   │   │   │   │   │   ├── customer_dto.go
+│   │   │   │   │   │   ├── customer_dto_test.go
+│   │   │   │   │   │   ├── loan_dto.go
+│   │   │   │   │   │   └── loan_dto_test.go
+│   │   │   │   │   ├── loan_handler.go
+│   │   │   │   │   └── loan_handler_test.go
+│   │   │   │   ├── middleware
+│   │   │   │   │   ├── auth.go
+│   │   │   │   │   ├── auth_test.go
+│   │   │   │   │   ├── logger.go
+│   │   │   │   │   ├── logger_test.go
+│   │   │   │   │   ├── metrics.go
+│   │   │   │   │   ├── metrics_test.go
+│   │   │   │   │   ├── ratelimit.go
+│   │   │   │   │   └── ratelimit_test.go
+│   │   │   │   └── router.go
+│   │   │   ├── batch
+│   │   │   │   ├── delinquency_job.go
+│   │   │   │   └── delinquency_job_test.go
+│   │   │   ├── config
+│   │   │   │   ├── config.go
+│   │   │   │   └── config_test.go
+│   │   │   ├── domain
+│   │   │   │   ├── customer
+│   │   │   │   │   ├── customer.go
+│   │   │   │   │   ├── customer_test.go
+│   │   │   │   │   ├── repository.go
+│   │   │   │   │   ├── repository_test.go
+│   │   │   │   │   ├── service.go
+│   │   │   │   │   └── service_test.go
+│   │   │   │   └── loan
+│   │   │   │       ├── loan.go
+│   │   │   │       ├── loan_test.go
+│   │   │   │       ├── repository.go
+│   │   │   │       ├── repository_test.go
+│   │   │   │       ├── service.go
+│   │   │   │       └── service_test.go
+│   │   │   ├── event
+│   │   │   │   ├── delinquency_changed_event.go
+│   │   │   │   ├── new_customer_event.go
+│   │   │   │   └── rabbitmq_publisher.go
+│   │   │   ├── infrastructure
+│   │   │   │   ├── database
+│   │   │   │   │   └── postgres
+│   │   │   │   │       ├── connection.go
+│   │   │   │   │       ├── connection_test.go
+│   │   │   │   │       ├── customer_repository.go
+│   │   │   │   │       ├── customer_repository_test.go
+│   │   │   │   │       ├── loan_repository.go
+│   │   │   │   │       └── loan_repository_test.go
+│   │   │   │   ├── logging
+│   │   │   │   │   └── logger.go
+│   │   │   │   └── monitoring
+│   │   │   │       └── metrics.go
+│   │   │   └── pkg
+│   │   │       └── apperrors
+│   │   │           ├── errors.go
+│   │   │           └── errors_test.go
+│   │   ├── main
+│   │   ├── Makefile
+│   │   └── migrations
+│   │       ├── 001_create_loans_table.sql
+│   │       ├── 002_create_schedule_table.sql
+│   │       ├── 003_create_customer_table.sql
+│   │       ├── create-dbs.sh
+│   │       └── init.sql
+│   ├── docker-compose.yml
+│   ├── notify-service
+│   │   ├── cmd
+│   │   │   └── main.go
+│   │   ├── config.yml
+│   │   ├── go.mod
+│   │   ├── go.sum
+│   │   ├── internal
+│   │   │   ├── config
+│   │   │   │   ├── config.go
+│   │   │   │   └── config_test.go
+│   │   │   ├── domain
+│   │   │   │   └── customer
+│   │   │   │       ├── customer.go
+│   │   │   │       ├── customer_test.go
+│   │   │   │       ├── repository.go
+│   │   │   │       └── repository_test.go
+│   │   │   ├── event
+│   │   │   │   └── customer
+│   │   │   │       ├── consumer.go
+│   │   │   │       ├── event.go
+│   │   │   │       └── event_handler.go
+│   │   │   └── infrastructure
+│   │   │       ├── database
+│   │   │       │   └── postgres
+│   │   │       │       ├── connection.go
+│   │   │       │       ├── connection_test.go
+│   │   │       │       ├── customer_repository.go
+│   │   │       │       └── customer_repository_test.go
+│   │   │       ├── logging
+│   │   │       │   └── logger.go
+│   │   │       └── monitoring
+│   │   │           └── metrics.go
+│   │   ├── main
+│   │   └── migrations
+│   │       └── 001_create_customer_table.sql
+│   ├── prometheus
+│   │   └── prometheus.yaml
+│   └── README.md
 ```
