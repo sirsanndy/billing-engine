@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"notify-service/internal/domain/customer"
+	"notify-service/internal/infrastructure/monitoring"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -73,7 +74,7 @@ func (h *CustomerEventHandler) HandleDelivery(ctx context.Context, d amqp.Delive
 
 	logCtx = logCtx.With(slog.Int64("customerID", customerToUpsert.CustomerID))
 	logCtx.InfoContext(ctx, "Processing event for customer")
-
+	monitoring.RecordConsumerProcessed()
 	if err := h.repo.Upsert(ctx, customerToUpsert); err != nil {
 		logCtx.ErrorContext(ctx, "Failed to upsert customer via repository", "error", err)
 
