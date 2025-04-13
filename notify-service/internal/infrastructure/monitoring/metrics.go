@@ -17,8 +17,8 @@ type DBMetrics struct {
 }
 
 type BusinessMetrics struct {
-	LoansCreatedTotal      prometheus.Counter
-	PaymentsProcessedTotal *prometheus.CounterVec
+	ConsumerCreatedTotal prometheus.Counter
+	CostumerCreatedTotal prometheus.Counter
 }
 
 var (
@@ -52,18 +52,17 @@ var (
 	}
 
 	Business = BusinessMetrics{
-		LoansCreatedTotal: promauto.NewCounter(
+		ConsumerCreatedTotal: promauto.NewCounter(
 			prometheus.CounterOpts{
-				Name: "billing_engine_loans_created_total",
-				Help: "Total number of loans successfully created.",
+				Name: "consumer_notify_service_total",
+				Help: "Total number of consumer successfully created.",
 			},
 		),
-		PaymentsProcessedTotal: promauto.NewCounterVec(
+		CostumerCreatedTotal: promauto.NewCounter(
 			prometheus.CounterOpts{
-				Name: "billing_engine_payments_processed_total",
-				Help: "Total number of payment processing attempts.",
+				Name: "consumer_notify_service_total",
+				Help: "Total number of consumer successfully created.",
 			},
-			[]string{"status"},
 		),
 	}
 )
@@ -77,10 +76,10 @@ func RecordDBQuery(queryName, status string, duration time.Duration) {
 	DB.QueryDuration.WithLabelValues(queryName, status).Observe(duration.Seconds())
 }
 
-func RecordLoanCreation() {
-	Business.LoansCreatedTotal.Inc()
+func RecordConsumerProcessed() {
+	Business.ConsumerCreatedTotal.Inc()
 }
 
-func RecordPayment(status string) {
-	Business.PaymentsProcessedTotal.WithLabelValues(status).Inc()
+func RecordCostumerCreated() {
+	Business.ConsumerCreatedTotal.Inc()
 }
