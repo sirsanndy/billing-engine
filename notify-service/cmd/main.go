@@ -35,12 +35,25 @@ func main() {
 
 	logger.Info("Setting up Prometheus metrics endpoint", "path", "/metrics")
 	http.Handle("/metrics", promhttp.Handler())
-	http.ListenAndServe(":8090", nil)
+
+	server := &http.Server{Addr: ":8090"}
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Error("Failed to start HTTP server", slog.Any("error", err))
+			cancel()
+		}
+	}()
 
 	consumer := setupConsumer(rabbitConn, cfg, eventHandler, logger)
-	startConsumer(ctx, consumer, logger)
+	go startConsumer(ctx, consumer, logger)
 
 	waitForShutdownSignal(ctx, consumer, logger)
+
+	logger.Info("Shutting down HTTP server...")
+	if err := server.Shutdown(ctx); err != nil {
+		logger.Error("Error shutting down HTTP server", slog.Any("error", err))
+	}
+	logger.Info("HTTP server shut down gracefully.")
 }
 
 func initializeConfigAndLogger() (*config.Config, *slog.Logger) {
