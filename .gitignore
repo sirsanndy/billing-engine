@@ -49,3 +49,6 @@ Thumbs.db
 *.log
 logs/
 main
+
+#idea folder
+.idea/
