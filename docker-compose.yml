@@ -1,0 +1,67 @@
+services:
+  postgres-billing:
+    image: postgres:latest
+    container_name: postgres-billing
+    volumes:
+     - ./billing-engine/migrations/init.sql:/docker-entrypoint-initdb.d/init.sql
+     - ./billing-engine/migrations/create-dbs.sh:/docker-entrypoint-initdb.d/create-dbs.sh 
+     - 'postgres-data:/var/lib/postgresql/data'
+    ports:
+      - ${POSTGRES_PORT}:5432
+    networks:
+      - billing-network
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_BILLING_DATABASE}
+    healthcheck:
+      test: ["CMD", "pg_isready", "-P", "${POSTGRES_PORT}", "-U", "${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+  rabbitmq-billing:
+    image: rabbitmq:management
+    container_name: rabbitmq-billing
+    networks:
+      - billing-network
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - '9090:9090'
+    networks:
+      - billing-network
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+  grafana-billing:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    networks:
+      - billing-network
+    depends_on:
+      - prometheus
+
+networks:
+  billing-network:
+    driver: bridge
+volumes:
+  postgres-data:
+    driver: local
