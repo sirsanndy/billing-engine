@@ -316,7 +316,6 @@ Here is a summary of the available endpoints grouped by tags based on the Swagge
 │   │       ├── 003_create_customer_table.sql
 │   │       ├── create-dbs.sh
 │   │       └── init.sql
-│   ├── docker-compose.yml
 │   ├── notify-service
 │   │   ├── cmd
 │   │   │   └── main.go
@@ -354,5 +353,7 @@ Here is a summary of the available endpoints grouped by tags based on the Swagge
 │   │       └── 001_create_customer_table.sql
 │   ├── prometheus
 │   │   └── prometheus.yaml
+│   ├── .gitignore
+│   ├── docker-compose.yml
 │   └── README.md
 ```
