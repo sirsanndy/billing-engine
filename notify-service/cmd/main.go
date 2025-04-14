@@ -24,6 +24,7 @@ func main() {
 	ctx, cancel := setupSignalHandling()
 	defer cancel()
 
+	logger = logger.With("traceId", ctx.Value("traceId"))
 	dbpool := setupDatabase(ctx, cfg, logger)
 	defer closeDatabase(dbpool, logger)
 
