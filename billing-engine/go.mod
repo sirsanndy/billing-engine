@@ -21,7 +21,11 @@ require (
 	github.com/stretchr/testify v1.10.0
 )
 
-require github.com/jackc/pgio v1.0.0 // indirect
+require (
+	github.com/go-chi/traceid v0.3.0 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/jackc/pgio v1.0.0 // indirect
+)
 
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
