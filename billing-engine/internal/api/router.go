@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/traceid"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
@@ -39,6 +40,7 @@ func SetupRouter(loanService loan.LoanService, customerService customer.Customer
 func setupMiddleware(router *chi.Mux, cfg *config.Config, logger *slog.Logger) {
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
+	router.Use(traceid.Middleware)
 	router.Use(mw.StructuredLogger(logger))
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Compress(5))
