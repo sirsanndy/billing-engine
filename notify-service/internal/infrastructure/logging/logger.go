@@ -5,6 +5,8 @@ import (
 	"notify-service/internal/config"
 	"os"
 	"strings"
+
+	"github.com/go-chi/traceid"
 )
 
 func NewLogger(cfg config.LoggerConfig) *slog.Logger {
@@ -27,6 +29,7 @@ func NewLogger(cfg config.LoggerConfig) *slog.Logger {
 		AddSource: level == slog.LevelDebug,
 	}
 	handler := slog.NewJSONHandler(os.Stdout, opts)
+	handler = traceid.LogHandler(handler)
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
 	return logger
