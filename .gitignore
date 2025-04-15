@@ -60,3 +60,6 @@ main
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
+config.yml
+/billing-engine/config.yml
+/notify-service/config.yml
