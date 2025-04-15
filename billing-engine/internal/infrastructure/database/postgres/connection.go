@@ -54,7 +54,7 @@ func configurePool(cfg config.DatabaseConfig) (*pgxpool.Config, error) {
 
 func verifyConnection(ctx context.Context, dbpool *pgxpool.Pool, logger *slog.Logger) error {
 	logger.Info("Pinging database...")
-	pingCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	pingCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	if err := dbpool.Ping(pingCtx); err != nil {
