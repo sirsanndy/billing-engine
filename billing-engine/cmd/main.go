@@ -3,6 +3,7 @@ package main
 import (
 	_ "billing-engine/docs"
 	"billing-engine/internal/api"
+	"billing-engine/internal/api/middleware"
 	"billing-engine/internal/batch"
 	"billing-engine/internal/config"
 	"billing-engine/internal/domain/customer"
@@ -21,6 +22,7 @@ import (
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/robfig/cron/v3"
@@ -48,15 +50,17 @@ func main() {
 	dbPool := initializeDatabase(cfg, logger)
 	defer closeDatabase(dbPool, logger)
 	rabbitMQConn, _ := setupRabbitMQ(cfg, logger)
+	redisClient := initializeRedisClient(cfg, logger)
+	rateLimiter := initializeRateLimiter(cfg, redisClient, logger)
 	loanService, customerService, loanRepo := initializeServices(rabbitMQConn, dbPool, logger)
 
 	updateJob := batch.NewUpdateDelinquencyJob(loanRepo, loanService, customerService, logger)
 
 	cronScheduler := startBatchJobs(cfg, logger, updateJob)
-	router := api.SetupRouter(loanService, customerService, cfg, logger)
+	router := api.SetupRouter(rateLimiter, loanService, customerService, cfg, logger)
 
 	srv, serverErrors, shutdownChan := startServer(cfg, router, logger)
-	handleShutdown(srv, cronScheduler, rabbitMQConn, shutdownChan, serverErrors, logger)
+	handleShutdown(srv, cronScheduler, rabbitMQConn, redisClient, shutdownChan, serverErrors, logger)
 }
 
 func initializeApp() (*config.Config, *slog.Logger) {
@@ -86,6 +90,15 @@ func initializeDatabase(cfg *config.Config, logger *slog.Logger) *pgxpool.Pool {
 func closeDatabase(dbPool *pgxpool.Pool, logger *slog.Logger) {
 	logger.Info("Closing database connection pool...")
 	dbPool.Close()
+}
+
+func initializeRateLimiter(cfg *config.Config, redisClient *redis.Client, logger *slog.Logger) *middleware.RateLimiterMiddleware {
+	rlMiddleware := middleware.NewRateLimiterMiddleware(
+		cfg.Server.RateLimit,
+		redisClient,
+		logger,
+	)
+	return rlMiddleware
 }
 
 func initializeServices(rabbitConn *amqp.Connection, dbPool *pgxpool.Pool, logger *slog.Logger) (loan.LoanService, customer.CustomerService, loan.Repository) {
@@ -126,7 +139,7 @@ func startServer(cfg *config.Config, router http.Handler, logger *slog.Logger) (
 	return srv, serverErrors, shutdownChan
 }
 
-func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, rabbitConn *amqp.Connection,
+func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, rabbitConn *amqp.Connection, redisClient *redis.Client,
 	shutdownChan <-chan os.Signal, serverErrors <-chan error, logger *slog.Logger) {
 	logger.Info("Shutdown handler started. Waiting for signal or server error...")
 
@@ -136,6 +149,7 @@ func handleShutdown(srv *http.Server, cronScheduler *cron.Cron, rabbitConn *amqp
 
 	stopCronScheduler(cronScheduler, logger)
 	closeRabbitMQConnection(rabbitConn, logger)
+	closeRedisClient(redisClient, logger)
 	shutdownHTTPServer(srv, serverErrors, logger)
 
 	logger.Info("Application shutdown process complete.")
@@ -210,6 +224,46 @@ func shutdownHTTPServer(srv *http.Server, serverErrors <-chan error, logger *slo
 		}
 	case <-time.After(5 * time.Second):
 		logger.Warn("Timed out waiting for server goroutine confirmation.")
+	}
+}
+
+func initializeRedisClient(cfg *config.Config, logger *slog.Logger) *redis.Client {
+	logger.Info("Initializing central Redis client...")
+	if cfg.Redis.Addr == "" {
+		logger.Error("Redis address (addr) is not configured.")
+		os.Exit(1)
+		return nil
+	}
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     cfg.Redis.Addr,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if status := rdb.Ping(ctx); status.Err() != nil {
+		logger.Error("Failed to connect to Redis", "error", status.Err(), "addr", cfg.Redis.Addr)
+		_ = rdb.Close()
+		os.Exit(1)
+		return nil
+	}
+
+	logger.Info("Central Redis client connected successfully.", "addr", cfg.Redis.Addr, "db", cfg.Redis.DB)
+	return rdb
+}
+
+func closeRedisClient(redisClient *redis.Client, logger *slog.Logger) {
+	if redisClient != nil {
+		logger.Info("Closing central Redis client connection...")
+		if err := redisClient.Close(); err != nil {
+			logger.Error("Failed to close central Redis client connection gracefully", "error", err)
+		} else {
+			logger.Info("Central Redis client connection closed.")
+		}
+	} else {
+		logger.Info("Redis client was not initialized, skipping close.")
 	}
 }
 

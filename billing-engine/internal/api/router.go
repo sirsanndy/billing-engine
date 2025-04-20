@@ -20,10 +20,10 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
-func SetupRouter(loanService loan.LoanService, customerService customer.CustomerService, cfg *config.Config, logger *slog.Logger) *chi.Mux {
+func SetupRouter(rateLimit *mw.RateLimiterMiddleware, loanService loan.LoanService, customerService customer.CustomerService, cfg *config.Config, logger *slog.Logger) *chi.Mux {
 	router := chi.NewRouter()
 
-	setupMiddleware(router, cfg, logger)
+	setupMiddleware(router, rateLimit, logger)
 	setupMetricsEndpoint(router, cfg, logger)
 	setupCustomerRoutes(router, cfg, customerService, logger)
 	setupLoanRoutes(router, loanService, cfg, logger)
@@ -37,7 +37,7 @@ func SetupRouter(loanService loan.LoanService, customerService customer.Customer
 	return router
 }
 
-func setupMiddleware(router *chi.Mux, cfg *config.Config, logger *slog.Logger) {
+func setupMiddleware(router *chi.Mux, rateLimit *mw.RateLimiterMiddleware, logger *slog.Logger) {
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
 	router.Use(traceid.Middleware)
@@ -45,7 +45,7 @@ func setupMiddleware(router *chi.Mux, cfg *config.Config, logger *slog.Logger) {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.Compress(5))
 	router.Use(middleware.Timeout(60 * time.Second))
-	router.Use(mw.NewRateLimiterMiddleware(cfg.Server.RateLimit, logger).Middleware)
+	router.Use(rateLimit.Middleware)
 	router.Use(mw.MetricsMiddleware())
 }
 

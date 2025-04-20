@@ -11,18 +11,19 @@ require (
 	github.com/spf13/viper v1.20.1 // For configuration loading
 	github.com/swaggo/http-swagger/v2 v2.0.2
 	github.com/swaggo/swag v1.16.4
-	golang.org/x/time v0.11.0 // For rate limiter (if used)
 )
 
 require (
+	github.com/go-chi/traceid v0.3.0
 	github.com/jackc/pgtype v1.14.4
 	github.com/rabbitmq/amqp091-go v1.10.0
+	github.com/redis/go-redis/v9 v9.7.3
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/stretchr/testify v1.10.0
 )
 
 require (
-	github.com/go-chi/traceid v0.3.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/jackc/pgio v1.0.0 // indirect
 )
