@@ -63,3 +63,4 @@ main
 config.yml
 /billing-engine/config.yml
 /notify-service/config.yml
+billing-engine/config.yml
